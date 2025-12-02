@@ -83,18 +83,30 @@ namespace StructuredLogViewer.DependencyGraph
                 });
             }
 
-            int i = 0;
+            int nextTarget = 0;
 
             Target NextTarget(DateTime? lastTargetEnd)
             {
-                Contract.Assert(i < targets.Count);
+                Contract.Assert(nextTarget < targets.Count);
 
-                var target = targets[i++];
+                var target = targets[nextTarget++];
 
                 Contract.Assert(project.StartTime <= target.StartTime && target.EndTime <= project.EndTime);
-                Contract.Assert(lastTargetEnd == null || lastTargetEnd.Value <= target.StartTime);
+
+                // I've seen cases where targets that are skipped will have their start/end times before the prior target is completed
+                Contract.Assert(lastTargetEnd == null || target.Skipped || lastTargetEnd.Value <= target.StartTime);
 
                 return target;
+            }
+
+            bool IsNextTargetBefore(DateTime endTime)
+            {
+                if (nextTarget >= targets.Count)
+                {
+                    return false;
+                }
+
+                return targets[nextTarget].StartTime < endTime && targets[nextTarget].EndTime <= endTime;
             }
 
             TargetBaseNode ProcessTarget(Target target, TargetBaseNode lastTargetBaseNode)
@@ -186,17 +198,15 @@ namespace StructuredLogViewer.DependencyGraph
                                 TargetBaseNode lastCallTargetNode = callTargetStartNode;
                                 var callTargetNames = new Queue<string>(callTargetTask.GetTargets());
 
-                                while (callTargetNames.Count() > 0)
+                                while (callTargetNames.Count > 0 || IsNextTargetBefore(callTargetTask.EndTime))
                                 {
-                                    var callTargetName = callTargetNames.Dequeue();
+                                    var nextTarget = NextTarget(lastCallTargetNode.PriorTargetNode.GetEnd());
+                                    lastCallTargetNode = ProcessTarget(nextTarget, lastCallTargetNode);
 
-                                    Target nextTarget = null;
-                                    do
+                                    if (callTargetNames.Count > 0 && callTargetNames.Peek() == nextTarget.Name)
                                     {
-                                        nextTarget = NextTarget(lastCallTargetNode.PriorTargetNode.GetEnd());
-                                        Contract.Assert(nextTarget.EndTime <= callTargetTask.EndTime);
-                                        lastCallTargetNode = ProcessTarget(nextTarget, lastCallTargetNode);
-                                    } while (nextTarget.Name != callTargetName);
+                                        callTargetNames.Dequeue();
+                                    }
                                 }
 
                                 var callTargetEndNode = UpdateCreatedTargetBaseNode(new CallTargetEndNode()
@@ -241,7 +251,7 @@ namespace StructuredLogViewer.DependencyGraph
             }
 
             TargetBaseNode lastTargetNode = null;
-            while (i < targets.Count)
+            while (nextTarget < targets.Count)
             {
                 var target = NextTarget(lastTargetNode?.GetEnd());
                 lastTargetNode = ProcessTarget(target, lastTargetNode);
