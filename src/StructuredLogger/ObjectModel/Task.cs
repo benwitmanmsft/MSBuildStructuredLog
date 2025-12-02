@@ -39,4 +39,16 @@ namespace Microsoft.Build.Logging.StructuredLogger
     {
         //public override string TypeName => nameof(MSBuildTask);
     }
+
+    public class CallTargetTask : Task
+    {
+        public IEnumerable<string> GetTargets() => 
+            this.Children
+                .OfType<Folder>()
+                .Single(p => p.Name == "Parameters")
+                .Children
+                .OfType<Property>()
+                .Where(t => t.Name == "Targets")
+                .SelectMany(p => p.Value.Split(';'));
+    }
 }
