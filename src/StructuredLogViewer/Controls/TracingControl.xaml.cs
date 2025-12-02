@@ -1193,6 +1193,18 @@ namespace StructuredLogViewer.Controls
             zoomSlider.Value = 1;
         }
 
+        private void Canvas_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyboardDevice.Modifiers == ModifierKeys.Control && e.Key == Key.C)
+            {
+                if (activeTextBlock != null)
+                {
+                    ClipboardService.SetText(activeTextBlock.Block.GetTooltip(null));
+                    e.Handled = true;
+                }
+            }
+        }
+
         private void Canvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
             if (isMouseMoving)

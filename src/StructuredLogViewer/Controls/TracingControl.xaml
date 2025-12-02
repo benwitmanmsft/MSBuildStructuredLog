@@ -26,6 +26,8 @@
         <ScrollViewer x:Name="scrollViewer"
                 HorizontalScrollBarVisibility="Auto" 
                 VerticalScrollBarVisibility="Auto"
+                      KeyDown="Canvas_KeyDown"
+                      Focusable="True"
                       Loaded="ScrollViewer_Loaded"
                       Unloaded="ScrollViewer_Unloaded"
                       ScrollChanged="ScrollViewer_ScrollChanged">
