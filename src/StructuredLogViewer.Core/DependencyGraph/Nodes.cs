@@ -202,7 +202,7 @@ namespace StructuredLogViewer.DependencyGraph
         public MSBuildTask Task;
         public int Index;
         public HashSet<BaseNode> Discovered = new();
-        public TimeSpan EmptyDuration = TimeSpan.Zero;
+        public TimeSpan EmptyDuration;
 
         public override string ToString()
         {
@@ -276,4 +276,27 @@ namespace StructuredLogViewer.DependencyGraph
         public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
     }
 
+    public class TargetFromResultsCache : BaseNode
+    {
+        public MSBuildStartNode RequestingNode;
+        public Project Project;
+        public string TargetName;
+
+        public override ProjectEvaluation TheEvaluation => RequestingNode.EvaluationNode.Evaluation;
+
+        public override string ToString()
+        {
+            return $"From Results Cache Build:{Project.Id:D4} {Project.ProjectFile}:{TargetName}";
+        }
+
+        public override string ToPrettyString() => $"{Path.GetFileName(Project.ProjectFile)}: {TargetName}: From Results Cache";
+
+        public override TimeSpan GetDuration() => TimeSpan.Zero;
+
+        public override DateTime GetEnd() => RequestingNode.GetEnd();
+
+        public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+
+        public override IEnumerable<BaseNode> GetDependencies() => [];
+    }
 }

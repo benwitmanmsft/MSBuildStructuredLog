@@ -6,15 +6,14 @@ using Microsoft.Build.Logging.StructuredLogger;
 
 namespace StructuredLogViewer.DependencyGraph
 {
-
-    public class GraphStartAnalysis
+    public class StartAnalysis
     {
         public Graph Graph;
         public TimeSpan TimeToFirstEvaluation;
         public Dictionary<int, List<ProjectEvaluationNode>> NodeEvaluations;
         public Dictionary<int, (TimeSpan StartTime, int Id, ProjectEvaluationNode Node)> NodeFirstEvaluation;
 
-        public GraphStartAnalysis(Graph graph)
+        public StartAnalysis(Graph graph)
         {
             Graph = graph;
 

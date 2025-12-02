@@ -42,13 +42,16 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
     public class CallTargetTask : Task
     {
-        public IEnumerable<string> GetTargets() => 
-            this.Children
+        public IEnumerable<string> GetTargets() =>
+            Children
                 .OfType<Folder>()
-                .Single(p => p.Name == "Parameters")
-                .Children
-                .OfType<Property>()
-                .Where(t => t.Name == "Targets")
-                .SelectMany(p => p.Value.Split(';'));
+                .SingleOrDefault(p => p.Name == Strings.Parameters)
+                ?.Children
+                .Where(t => t is Parameter || t is Property)
+                .SelectMany(t =>
+                    t is Property prop && prop.Name == "Targets" ? prop.Value.Split(';') :
+                    t is Parameter param && param.Name == "Targets" ? param.Children.OfType<Item>().Select(v => v.Name) :
+                    []
+                ) ?? Enumerable.Empty<string>();
     }
 }

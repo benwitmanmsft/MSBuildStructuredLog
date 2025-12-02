@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.Contracts;
 using System.IO;
 using System.Linq;
 using Microsoft.Build.Collections;
@@ -383,7 +384,10 @@ namespace Microsoft.Build.Logging.StructuredLogger
             if (originalBuildEventContext != null && originalBuildEventContext.ProjectContextId != BuildEventContext.InvalidProjectContextId)
             {
                 originalProject = GetProject(originalBuildEventContext.ProjectContextId);
-                if (originalProject != null && originalProject.ProjectInstanceId != originalBuildEventContext.ProjectInstanceId)
+                if (originalProject != null && !(
+                    originalProject.ProjectInstanceId == originalBuildEventContext.ProjectInstanceId &&
+                    originalProject.SourceFilePath == project.SourceFilePath &&
+                    originalProject.GlobalProperties.OrderBy(t => t.Key).SequenceEqual(project.GlobalProperties.OrderBy(t => t.Key))))
                 {
                     originalProject = null;
                     messageText = $"{messageText} Target results likely loaded from cache.";
@@ -393,7 +397,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
             if (originalProject != null)
             {
                 var originalNode = FindOriginalTarget(originalBuildEventContext.TargetId, originalProject, targetName);
-                if (originalNode != null && (originalNode is not Target || originalNode.Name == targetName))
+                if (originalNode != null && (originalNode is not Target || (target != originalNode && originalNode.Name == targetName && originalNode.EndTime <= target.StartTime)))
                 {
                     var prefix = "Target \"" + targetName + "\" "; // trim the Target Name text since the node will already display that
                     if (messageText.StartsWith(prefix, StringComparison.Ordinal))
@@ -406,6 +410,8 @@ namespace Microsoft.Build.Logging.StructuredLogger
                     addMessageAsAChildNode = false;
                 }
             }
+
+            Contract.Assert(target.OriginalNode != target);
 
             messageText = Intern(messageText);
 

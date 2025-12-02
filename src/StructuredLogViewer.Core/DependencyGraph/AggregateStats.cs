@@ -8,12 +8,19 @@ namespace StructuredLogViewer.DependencyGraph
 {
     public class AggregateStats
     {
-        Dictionary<string, List<TimeSpan>> TaskNameToDurations = new();
-        Dictionary<string, Dictionary<Target, List<TimeSpan>>> TargetDurations = new();
-        Dictionary<string, Dictionary<Target, List<TimeSpan>>> TargetTaskDurations = new();
-        Dictionary<string, Dictionary<Target, List<TimeSpan>>> EvaluationTargetDurations = new();
-        Dictionary<string, Dictionary<Target, List<TimeSpan>>> NodeTargetDurations = new();
-        Dictionary<string, List<TimeSpan>> EvaluationDurations = new();
+        private Dictionary<string, List<TimeSpan>> TaskNameToDurations = new();
+        private Dictionary<string, Dictionary<Target, List<TimeSpan>>> TargetDurations = new();
+        private Dictionary<string, Dictionary<Target, List<TimeSpan>>> TargetTaskDurations = new();
+        private Dictionary<string, Dictionary<Target, List<TimeSpan>>> EvaluationTargetDurations = new();
+        private Dictionary<string, Dictionary<Target, List<TimeSpan>>> NodeTargetDurations = new();
+        private Dictionary<string, List<TimeSpan>> EvaluationDurations = new();
+
+        public Dictionary<string, List<TimeSpan>> GetTaskNameToDurations() => TaskNameToDurations;
+        public Dictionary<string, List<TimeSpan>> GetTargetDurations() => TargetDurations.ToDictionary(t => t.Key, v => FlattenTargetTimeSpans(v.Value));
+        public Dictionary<string, List<TimeSpan>> GetTargetTaskDurations() => TargetTaskDurations.ToDictionary(t => t.Key, v => FlattenTargetTimeSpans(v.Value));
+        public Dictionary<string, List<TimeSpan>> GetEvaluationDurations() => EvaluationDurations;
+        public Dictionary<string, List<TimeSpan>> GetEvaluationTargetDurations() => EvaluationTargetDurations.ToDictionary(t => t.Key, v => FlattenTargetTimeSpans(v.Value));
+        public Dictionary<string, List<TimeSpan>> GetNodeTargetDurations() => NodeTargetDurations.ToDictionary(t => t.Key, v => FlattenTargetTimeSpans(v.Value));
 
         public void AddNode(BaseNode node)
         {
@@ -61,12 +68,12 @@ namespace StructuredLogViewer.DependencyGraph
 
         public void WriteSummaries(StringBuilder summaries)
         {
-            WriteSummary(summaries, "Tasks By Duration", TaskNameToDurations);
-            WriteSummary(summaries, "Targets By Duration", TargetDurations.ToDictionary(t => t.Key, v => FlattenTargetTimeSpans(v.Value)));
-            WriteSummary(summaries, "Targets By Task Duration", TargetTaskDurations.ToDictionary(t => t.Key, v => FlattenTargetTimeSpans(v.Value)));
-            WriteSummary(summaries, "Evaluations By Duration", EvaluationDurations);
-            WriteSummary(summaries, "Evaluation by Target Duration", EvaluationTargetDurations.ToDictionary(t => t.Key, v => FlattenTargetTimeSpans(v.Value)));
-            WriteSummary(summaries, "Nodes by Target Duration", NodeTargetDurations.ToDictionary(t => t.Key, v => FlattenTargetTimeSpans(v.Value)));
+            WriteSummary(summaries, "Tasks By Duration", GetTaskNameToDurations());
+            WriteSummary(summaries, "Targets By Duration", GetTargetDurations());
+            WriteSummary(summaries, "Targets By Task Duration", GetTargetTaskDurations());
+            WriteSummary(summaries, "Evaluations By Duration", GetEvaluationDurations());
+            WriteSummary(summaries, "Evaluation by Target Duration", GetEvaluationTargetDurations());
+            WriteSummary(summaries, "Nodes by Target Duration", GetNodeTargetDurations());
         }
     }
 }

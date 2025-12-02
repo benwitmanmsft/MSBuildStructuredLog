@@ -7,7 +7,7 @@ using System.Text;
 
 namespace StructuredLogViewer.DependencyGraph
 {
-    public class GraphDependencyAnalysis
+    public class DependencyAnalysis
     {
         public Graph Graph;
 
@@ -57,7 +57,7 @@ namespace StructuredLogViewer.DependencyGraph
             }
         }
 
-        public GraphDependencyAnalysis(Graph graph, Action<GraphWalk> onReady)
+        public DependencyAnalysis(Graph graph, Action<GraphWalk> onReady)
         {
             Graph = graph;
             OnReady = onReady;
@@ -95,17 +95,11 @@ namespace StructuredLogViewer.DependencyGraph
             return $"{prefix}{ts.ToString(AbbreviatedTimeSpanFormat)}";
         }
 
-        public static void PrintCriticalPath(GraphWalk endWalk, string baselineTitle, string bestTitle, StringBuilder criticalPathString, StringBuilder criticalPathAbbreviated, StringBuilder criticalPathSummary, TimeSpan threshold)
+        public static void PrintCriticalPath(GraphWalk endWalk, string baselineTitle, string bestTitle, StringBuilder criticalPathString, StringBuilder criticalPathAbbreviated, TimeSpan threshold)
         {
             criticalPathAbbreviated.AppendLine(@$"{baselineTitle,-10} +delta     ({bestTitle,-10} +delta    ) [loss time  +delta    ] [task time  +delta    ] Description");
 
-            var list = new List<GraphWalk>();
-            for (var i = endWalk; i != null; i = i.CriticalPath)
-            {
-                list.Add(i);
-            }
-
-            list.Reverse();
+            var list = endWalk.Enumerate().Reverse().ToList();
 
             GraphWalk groupPreviousEdge = null;
             List<GraphWalk> groupContents = null;
@@ -197,13 +191,9 @@ namespace StructuredLogViewer.DependencyGraph
                 groupContents = null;
             }
 
-            var criticalPathAggregateStats = new AggregateStats();
-
             GraphWalk lastWalk = null;
             foreach (var walk in list)
             {
-                criticalPathAggregateStats.AddNode(walk.Node);
-
                 if (lastWalk == null)
                 {
                     PrintNode(walk, false, false);
@@ -230,9 +220,6 @@ namespace StructuredLogViewer.DependencyGraph
             }
 
             FlushGroup();
-
-            criticalPathSummary.AppendLine("Path Summary:");
-            criticalPathAggregateStats.WriteSummaries(criticalPathSummary);
         }
     }
 }

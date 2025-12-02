@@ -1,24 +1,27 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Linq;
+using Microsoft.Build.Logging.StructuredLogger;
 
 namespace StructuredLogViewer.DependencyGraph
 {
-    public class GraphCriticalPathAnalysis
+    public class CriticalPathAnalysis
     {
         public Graph graph;
         public Dictionary<BaseNode, GraphWalk> CriticalPaths;
         public GraphWalk CriticalPath;
+        public AggregateStats CriticalPathStats = new();
 
-        public GraphCriticalPathAnalysis(Graph graph)
+        public CriticalPathAnalysis(Graph graph)
         {
             this.graph = graph;
 
             List<GraphWalk> discoveryQueue = new();
             Stack<GraphWalk> stack = new();
 
-            var dependencyAnalysis = new GraphDependencyAnalysis(graph, stack.Push);
+            var dependencyAnalysis = new DependencyAnalysis(graph, stack.Push);
 
             int BinarySearchResultIndex(int result) => result < 0 ? ~result : result;
 
@@ -71,14 +74,55 @@ namespace StructuredLogViewer.DependencyGraph
             CriticalPaths = dependencyAnalysis.NodeToWalk;
             CriticalPath = CriticalPaths[graph.EndNode];
 
-            //File.WriteAllText($"{graph.Build.LogFilePath}.criticalpathtimes.txt", string.Join(Environment.NewLine,
-            //    CriticalPaths.Values
-            //    .OrderBy(t => t.CriticalPathTime.Value)
-            //    .Select(t => $"{t.CriticalPathTime.Value:G} {t.Node.ToPrettyString()}")
-            //));
+            foreach(var walk in CriticalPath.Enumerate())
+            {
+                CriticalPathStats.AddNode(walk.Node);
+            }
 
-            Contract.Assert(CriticalPaths.Values.All(t => t.CriticalPathTime.HasValue));
+            var missing = CriticalPaths.Values
+                .Where(t => !t.CriticalPathTime.HasValue)
+                .ToDictionary(t => t.Node, t => new MissingCriticalPathInfo { Walk = t });
+
+            foreach (var missingInfo in missing.Values)
+            {
+                missingInfo.DiscoveriesRemaining = missingInfo.Walk.Node.DiscoveredBy
+                    .Where(missing.ContainsKey)
+                    .Select(t => missing[t])
+                    .ToList();
+
+                missingInfo.DependenciesRemaining = missingInfo.Walk.Node.GetDependencies()
+                    .Where(missing.ContainsKey)
+                    .Select(t => missing[t])
+                    .ToList();
+            }
+
+            if (missing.Values.Any())
+            {
+                HashSet<BaseNode> seen = new();
+                var current = missing.First().Value;
+
+                while (current != null && seen.Add(current.Walk.Node))
+                {
+                    Debug.WriteLine($"Missing Critical Path for {current.Walk.Node.ToPrettyString()}");
+                    current = current.DependenciesRemaining.Concat(current.DiscoveriesRemaining).FirstOrDefault();
+                }
+
+                if (current != null)
+                {
+                    Debug.WriteLine($"Missing Critical Path for {current.Walk.Node.ToPrettyString()}");
+                }
+            }
+
+            Contract.Assert(missing.Count == 0);
         }
+
+        class MissingCriticalPathInfo
+        {
+            public GraphWalk Walk;
+            public List<MissingCriticalPathInfo> DependenciesRemaining;
+            public List<MissingCriticalPathInfo> DiscoveriesRemaining;
+        }
+
     }
 
 }

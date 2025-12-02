@@ -4,7 +4,6 @@ using System.Diagnostics.Contracts;
 using System.Linq;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Logging.StructuredLogger;
-using StructuredLogViewer.DependencyGraph;
 
 namespace StructuredLogViewer.DependencyGraph
 {
@@ -23,7 +22,6 @@ namespace StructuredLogViewer.DependencyGraph
         private T ProcessCreatedNode<T>(T node) where T : BaseNode
         {
             Nodes.Add(node);
-            AggregateStats.AddNode(node);
 
             if (node is ProjectEvaluationNode evaluationNode)
             {
@@ -35,19 +33,6 @@ namespace StructuredLogViewer.DependencyGraph
 
         private BaseNode ProcessProject(Project project, MSBuildStartNode requestingNode)
         {
-            var evaluation = project.GetEvaluation(Build);
-            if (evaluation == null)
-            {
-                evaluation = project.Children.OfType<Target>().First().OriginalNode.GetNearestParent<Project>().GetEvaluation(Build);
-            }
-
-            var evaluationNode = EvaluationNodes[evaluation.Id];
-
-            evaluationNode.DiscoveredBy.Add(requestingNode);
-            requestingNode.Discovered.Add(evaluationNode);
-
-            var targets = project.Children.OfType<Target>().ToList();
-
             T UpdateCreatedBaseNode<T>(T node) where T : BaseNode
             {
                 ProcessCreatedNode(node);
@@ -57,6 +42,36 @@ namespace StructuredLogViewer.DependencyGraph
 
                 return node;
             }
+
+            var evaluation = project.GetEvaluation(Build);
+            if (evaluation == null)
+            {
+                foreach (var target in project.Children.OfType<Target>())
+                {
+                    if (target.OriginalNode != null)
+                    {
+                        evaluation = target.OriginalNode.GetNearestParent<Project>().GetEvaluation(Build);
+                        break;
+                    }
+                }
+
+                if (evaluation == null)
+                {
+                    return UpdateCreatedBaseNode(new TargetFromResultsCache()
+                    {
+                        Project = project,
+                        RequestingNode = requestingNode,
+                        TargetName = project.Children.OfType<Folder>().Single(t => t.Name == Strings.EntryTargets).Children.OfType<EntryTarget>().Select(t => t.Name).Single()
+                    });
+                }
+            }
+
+            var evaluationNode = EvaluationNodes[evaluation.Id];
+
+            evaluationNode.DiscoveredBy.Add(requestingNode);
+            requestingNode.Discovered.Add(evaluationNode);
+
+            var targets = project.Children.OfType<Target>().ToList();
 
             // no target found to build, so it just noops
             if (targets.Count == 0)
@@ -276,6 +291,11 @@ namespace StructuredLogViewer.DependencyGraph
 
             AlreadyBuilt.Clear();
             TargetToLastNode.Clear();
+
+            foreach (var node in Nodes)
+            {
+                AggregateStats.AddNode(node);
+            }
         }
     }
 
@@ -293,5 +313,13 @@ namespace StructuredLogViewer.DependencyGraph
         public bool CriticalPathIsDiscovery;
         public bool Readied = false;
         public TimeSpan? BaselineTime;
+
+        public IEnumerable<GraphWalk> Enumerate()
+        {
+            for (var walk = this; walk != null; walk = walk.CriticalPath)
+            {
+                yield return walk;
+            }
+        }
     }
 }

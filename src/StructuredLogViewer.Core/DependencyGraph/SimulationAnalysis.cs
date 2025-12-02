@@ -3,23 +3,15 @@ using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Text;
-using System.Collections;
-using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.IO;
-using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Threading;
-using Microsoft.Build.Framework;
-using Microsoft.Build.Logging.StructuredLogger;
 
 namespace StructuredLogViewer.DependencyGraph
 {
-    public class GraphSimulationAnalysis
+    public class SimulationAnalysis
     {
         public Graph Graph;
         public Dictionary<BaseNode, GraphWalk> SimulatedPaths;
         public GraphWalk SimulatedPath;
+        public AggregateStats SimulatedPathStats = new();
 
         private class DependentWalkNode
         {
@@ -37,7 +29,22 @@ namespace StructuredLogViewer.DependencyGraph
             }
         }
 
-        public GraphSimulationAnalysis(Graph graph, GraphCriticalPathAnalysis criticalPathAnalysis, int workers, StringBuilder stepStringBuilder)
+        public enum StepType
+        {
+            Ready,
+            Start,
+            Stop,
+        }
+
+        public class SimulationStep
+        {
+            public StepType StepType;
+            public TimeSpan Time;
+            public GraphWalk Walk;
+            public TimeSpan RemainingCriticalPath;
+        }
+
+        public SimulationAnalysis(Graph graph, CriticalPathAnalysis criticalPathAnalysis, int workers, Action<SimulationStep> stepCallback)
         {
             Graph = graph;
 
@@ -106,9 +113,9 @@ namespace StructuredLogViewer.DependencyGraph
 
             TimeSpan currentTime = TimeSpan.Zero;
 
-            var dependencyAnalysis = new GraphDependencyAnalysis(graph, walk =>
+            var dependencyAnalysis = new DependencyAnalysis(graph, walk =>
             {
-                stepStringBuilder?.AppendLine($"{currentTime:G}: Ready: {walk.Node.ToPrettyString()} (Remaining Critical Path Time: {nodeToDependentWalkNode[walk.Node].RemainingCriticalPath.Value})");
+                stepCallback?.Invoke(new SimulationStep() { StepType = StepType.Ready, Time = currentTime, Walk = walk, RemainingCriticalPath = nodeToDependentWalkNode[walk.Node].RemainingCriticalPath.Value });
                 ready.Add((nodeToDependentWalkNode[walk.Node].RemainingCriticalPath.Value, walk.Id, walk));
             });
 
@@ -118,7 +125,7 @@ namespace StructuredLogViewer.DependencyGraph
                 {
                     var next = ready.Max;
                     ready.Remove(next);
-                    stepStringBuilder?.AppendLine($"{currentTime:G}: Start: {next.Walk.Node.ToPrettyString()}");
+                    stepCallback?.Invoke(new SimulationStep() { StepType = StepType.Start, Time = currentTime, Walk = next.Walk, RemainingCriticalPath = nodeToDependentWalkNode[next.Walk.Node].RemainingCriticalPath.Value });
                     var criticalPathWalk = criticalPathAnalysis.CriticalPaths[next.Walk.Node].CriticalPath;
                     next.Walk.CriticalPath = criticalPathWalk == null ? null : dependencyAnalysis.NodeToWalk[criticalPathWalk.Node];
                     next.Walk.CriticalPathTime = currentTime + next.Walk.Node.GetDuration();
@@ -132,7 +139,7 @@ namespace StructuredLogViewer.DependencyGraph
                 currentTime = finished.SimulatedEndTime;
                 var walk = finished.Walk;
 
-                stepStringBuilder?.AppendLine($"{currentTime:G}: Stop: {finished.Walk.Node.ToPrettyString()}");
+                stepCallback?.Invoke(new SimulationStep() { StepType = StepType.Stop, Time = currentTime, Walk = finished.Walk, RemainingCriticalPath = nodeToDependentWalkNode[finished.Walk.Node].RemainingCriticalPath.Value });
 
                 dependencyAnalysis.MakeDiscoveries(walk);
                 dependencyAnalysis.SatisfyDependents(walk);
@@ -142,6 +149,11 @@ namespace StructuredLogViewer.DependencyGraph
 
             SimulatedPaths = dependencyAnalysis.NodeToWalk;
             SimulatedPath = SimulatedPaths[graph.EndNode];
+
+            foreach (var walk in SimulatedPath.Enumerate())
+            {
+                SimulatedPathStats.AddNode(walk.Node);
+            }
 
             Contract.Assert(SimulatedPaths.Values.All(t => t.CriticalPathTime.HasValue));
         }
