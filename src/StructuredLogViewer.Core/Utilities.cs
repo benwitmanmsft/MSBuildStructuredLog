@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -106,5 +107,24 @@ namespace StructuredLogViewer
 
             return false;
         }
+    }
+
+    public static class Extensions
+    {
+        public static V GetOrAdd<K, V>(this Dictionary<K, V> dictionary, K key, Func<K, V> create)
+        {
+            if (!dictionary.TryGetValue(key, out var value))
+            {
+                return dictionary[key] = create(key);
+            }
+
+            return value;
+        }
+
+        public static V GetOrAddDefault<K, V>(this Dictionary<K, V> dictionary, K key) =>
+            GetOrAdd(dictionary, key, k => default);
+
+        public static V GetOrAddNew<K, V>(this Dictionary<K, V> dictionary, K key) where V : new() =>
+            GetOrAdd(dictionary, key, k => new());
     }
 }

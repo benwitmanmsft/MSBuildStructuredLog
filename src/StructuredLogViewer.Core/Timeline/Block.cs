@@ -21,9 +21,14 @@ namespace StructuredLogViewer
         public BlockEndpoint StartPoint;
         public BlockEndpoint EndPoint;
 
-        public string GetTooltip()
+        public string GetTooltip(int? maxChars = 100)
         {
-            var text = TextUtilities.ShortenValue(Node.ToString(), maxChars: 100);
+            var text = Node.ToString();
+
+            if (maxChars.HasValue)
+            {
+                text = TextUtilities.ShortenValue(text, maxChars: maxChars.Value);
+            }
 
             var project = Node.GetNearestParent<Project>();
             if (project != null)

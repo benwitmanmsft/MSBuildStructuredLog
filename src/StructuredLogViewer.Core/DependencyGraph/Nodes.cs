@@ -1,0 +1,279 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Microsoft.Build.Framework;
+using Microsoft.Build.Logging.StructuredLogger;
+
+namespace StructuredLogViewer.DependencyGraph
+{
+    public abstract class BaseNode
+    {
+        public HashSet<MSBuildStartNode> DiscoveredBy = new();
+
+        public abstract ProjectEvaluation TheEvaluation { get; }
+
+        public abstract IEnumerable<BaseNode> GetDependencies();
+
+        public abstract TimeSpan GetDuration();
+
+        public abstract TimeSpan GetTaskDuration();
+
+        public abstract DateTime GetEnd();
+
+        public abstract string ToPrettyString();
+    }
+
+    public class EmptyProjectBuildNode : BaseNode
+    {
+        public Project Project;
+        public ProjectEvaluationNode EvaluationNode;
+
+        public override ProjectEvaluation TheEvaluation => EvaluationNode.Evaluation;
+
+        public override IEnumerable<BaseNode> GetDependencies() => [EvaluationNode];
+
+        public override TimeSpan GetDuration() => TimeSpan.Zero;
+
+        public override TimeSpan GetTaskDuration() => Project.Duration;
+
+        public override DateTime GetEnd() => Project.EndTime;
+
+        public override string ToString() => $"No Targets Built   Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}:";
+
+        public override string ToPrettyString() => $"{EvaluationNode.ToPrettyString()}: No Targets Built";
+    }
+
+    public abstract class TargetBaseNode : BaseNode
+    {
+        public Target Target;
+        public Project Project;
+        public ProjectEvaluationNode EvaluationNode;
+        public TargetBaseNode PriorTargetNode;
+
+        public bool IsStart = true;
+        public bool IsEnd = true;
+
+        public override ProjectEvaluation TheEvaluation => Target == null ? null : EvaluationNode.Evaluation;
+
+        public override sealed IEnumerable<BaseNode> GetDependencies()
+        {
+            return GetBaseDependencies().Concat(GetSpecificDependencies());
+        }
+
+        protected IEnumerable<BaseNode> GetBaseDependencies()
+        {
+            if (PriorTargetNode != null)
+            {
+                yield return PriorTargetNode;
+            }
+            else if (EvaluationNode != null)
+            {
+                yield return EvaluationNode;
+            }
+        }
+
+        protected abstract IEnumerable<BaseNode> GetSpecificDependencies();
+    }
+
+    public class TargetFromCacheNode : TargetBaseNode
+    {
+        public TargetBaseNode CachedTarget;
+
+        public override string ToString()
+        {
+            return $"Target From Cache  Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}: {Target.Name}";
+        }
+
+        public override string ToPrettyString() => $"{EvaluationNode.PrettyName}: {Target.Name} (From Cache)";
+
+        protected override IEnumerable<BaseNode> GetSpecificDependencies() => [CachedTarget];
+
+        public override TimeSpan GetDuration() => Target.Duration;
+
+        public override DateTime GetEnd() => Target.EndTime;
+
+        public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+    }
+
+    public class TargetSkippedNode : TargetBaseNode
+    {
+        public TargetSkipReason SkipReason;
+
+        public override string ToString()
+        {
+            return $"Target Skipped     Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}: {Target.Name}: {SkipReason}";
+        }
+
+        public override string ToPrettyString() => $"{EvaluationNode.PrettyName}: Skipped {Target.Name}: {SkipReason}";
+
+        protected override IEnumerable<BaseNode> GetSpecificDependencies() => [];
+
+        public override TimeSpan GetDuration() => TimeSpan.Zero;
+
+        public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+
+        public override DateTime GetEnd() => Target.EndTime;
+    }
+
+    public class TargetTaskNode : TargetBaseNode
+    {
+        public DateTime? OverrideEndTime;
+        public List<Task> Tasks = new();
+        public long? CopiedFiles;
+
+        private string TaskNames => Tasks.Count == 0 ? "(no tasks)" : string.Join(", ", Tasks.Select(t => t.Name));
+
+        private string DisplayString => TaskNames + (CopiedFiles.HasValue ? $" (copied {CopiedFiles} files)" : string.Empty);
+
+        public override string ToString()
+        {
+            return $"Target Exec Tasks  Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}: {Target.Name}: {DisplayString}";
+        }
+
+        public override string ToPrettyString() => $"{EvaluationNode.PrettyName}: {Target.Name}: {DisplayString}";
+
+        protected override IEnumerable<BaseNode> GetSpecificDependencies() => [];
+
+        public override TimeSpan GetDuration()
+        {
+            if (OverrideEndTime.HasValue)
+            {
+                return TimeSpan.Zero;
+            }
+
+            DateTime start = IsStart ? Target.StartTime : PriorTargetNode.GetEnd();
+            DateTime end = GetEnd();
+
+            return end - start;
+        }
+
+        public override TimeSpan GetTaskDuration() => Tasks.Aggregate(TimeSpan.Zero, (ts, task) => ts + task.Duration);
+
+        public override DateTime GetEnd() => OverrideEndTime ?? (IsEnd ? Target.EndTime : Tasks.Last().EndTime);
+    }
+
+    public class CallTargetStartNode : TargetBaseNode
+    {
+        public CallTargetTask Task;
+        public int Index = 0;
+
+        public override string ToString()
+        {
+            return $"CallTarget Start   Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}: {Target.Name}: CallTarget #{Index}";
+        }
+
+        public override string ToPrettyString() => $"{EvaluationNode.PrettyName}: {Target.Name}: CallTarget Start #{Index}";
+
+        protected override IEnumerable<BaseNode> GetSpecificDependencies() => [];
+
+        public override TimeSpan GetDuration() => TimeSpan.Zero;
+
+        public override DateTime GetEnd() => Task.StartTime;
+
+        public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+    }
+
+    public class CallTargetEndNode : TargetBaseNode
+    {
+        public CallTargetTask Task;
+        public int Index = 0;
+        public TargetBaseNode CalledTarget;
+
+        public override string ToString()
+        {
+            return $"CallTarget End     Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}: {Target.Name}: CallTarget #{Index}";
+        }
+
+        public override string ToPrettyString() => $"{EvaluationNode.PrettyName}: {Target.Name}: CallTarget End #{Index}";
+
+        protected override IEnumerable<BaseNode> GetSpecificDependencies() => [CalledTarget];
+
+        public override TimeSpan GetDuration() => TimeSpan.Zero;
+
+        public override DateTime GetEnd() => Task.EndTime;
+
+        public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+    }
+
+    public class MSBuildStartNode : TargetBaseNode
+    {
+        public DateTime? CustomStartTime;
+        public MSBuildTask Task;
+        public int Index;
+        public HashSet<BaseNode> Discovered = new();
+        public TimeSpan EmptyDuration = TimeSpan.Zero;
+
+        public override string ToString()
+        {
+            return Target == null
+                ? $"Sentinel Start"
+                : $"MSBuild Call Start Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}:{Target.Name}: #{Index} {Task.SourceFilePath}:{Task.LineNumber}";
+        }
+
+        public override string ToPrettyString() => Target == null ? "Start" : $"{EvaluationNode.PrettyName}: {Target.Name}: MSBuild Start #{Index}";
+
+        protected override IEnumerable<BaseNode> GetSpecificDependencies() => [];
+
+        public override TimeSpan GetDuration() => EmptyDuration;
+
+        public override DateTime GetEnd() => CustomStartTime ?? Task.StartTime;
+
+        public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+    }
+
+    public class MSBuildEndNode : TargetBaseNode
+    {
+        public DateTime? CustomEndTime;
+        public MSBuildTask Task;
+        public int Index;
+        public List<BaseNode> ProjectLastTargetNodes;
+
+        public override string ToString()
+        {
+            return Target == null
+                ? $"Sentinel End"
+                : $"MSBuild Call End   Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}:{Target.Name}: #{Index} {Task.SourceFilePath}:{Task.LineNumber}";
+        }
+
+        public override string ToPrettyString() => Target == null ? "End" : $"{EvaluationNode.PrettyName}: {Target.Name}: MSBuild End #{Index}";
+
+        protected override IEnumerable<BaseNode> GetSpecificDependencies() => [.. ProjectLastTargetNodes];
+
+        public override TimeSpan GetDuration() => TimeSpan.Zero;
+
+        public override DateTime GetEnd() => CustomEndTime ?? (IsEnd ? Target.EndTime : Task.EndTime);
+
+        public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+    }
+
+    public class ProjectEvaluationNode : BaseNode
+    {
+        public ProjectEvaluation Evaluation;
+        public Dictionary<string, string> UniqueGlobalProperties;
+
+        public override ProjectEvaluation TheEvaluation => Evaluation;
+
+        public string UniqueGlobalPropertiesString => UniqueGlobalProperties.Count == 0 ?
+            string.Empty :
+            $" ({string.Join(", ", UniqueGlobalProperties.OrderBy(t => t.Key).Select(kv => $"{kv.Key}={kv.Value}"))})";
+
+        public string PrettyName => $"{Path.GetFileName(Evaluation.ProjectFile)}{UniqueGlobalPropertiesString}";
+
+        public override string ToString()
+        {
+            return $"Evaluation                    Eval:{Evaluation.Id:D4} {Evaluation.SourceFilePath} {UniqueGlobalPropertiesString}";
+        }
+
+        public override string ToPrettyString() => $"{PrettyName}: Evaluation";
+
+        public override IEnumerable<BaseNode> GetDependencies() => [];
+
+        public override TimeSpan GetDuration() => Evaluation.Duration;
+
+        public override DateTime GetEnd() => Evaluation.EndTime;
+
+        public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+    }
+
+}

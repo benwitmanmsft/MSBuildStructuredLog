@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Threading;
+using System.Text;
 using Microsoft.Build.Logging.StructuredLogger;
 
 namespace StructuredLogViewer
@@ -11,9 +12,53 @@ namespace StructuredLogViewer
     {
         public ConcurrentDictionary<int, Lane> Lanes { get; set; } = new();
 
+        public class DependencyGraph2
+        {
+            public DependencyGraph2(Build build)
+            {
+                var graph = new DependencyGraph.Graph(build);
+                var graphStartAnalysis = new DependencyGraph.GraphStartAnalysis(graph);
+                var graphCriticalPathAnalysis = new DependencyGraph.GraphCriticalPathAnalysis(graph);
+                var graphSimulationAnalysis = new DependencyGraph.GraphSimulationAnalysis(graph, graphCriticalPathAnalysis, graphStartAnalysis.NodeEvaluations.Count, stepStringBuilder: new());
+
+                StringBuilder criticalPathString = new();
+                StringBuilder criticalPathAbbreviated = new();
+                StringBuilder criticalPathSummary = new();
+                DependencyGraph.GraphDependencyAnalysis.PrintCriticalPath(graphCriticalPathAnalysis.CriticalPath, "actual", "critical", criticalPathString, criticalPathAbbreviated, criticalPathSummary, TimeSpan.FromMilliseconds(100));
+
+                StringBuilder simulationPathString = new();
+                StringBuilder simulationPathAbbreviated = new();
+                StringBuilder simulationPathSummary = new();
+                DependencyGraph.GraphDependencyAnalysis.PrintCriticalPath(graphSimulationAnalysis.SimulatedPath, "critical", "sim", simulationPathString, simulationPathAbbreviated, simulationPathSummary, TimeSpan.FromMilliseconds(100));
+
+                StringBuilder everythingSummary = new();
+                everythingSummary.AppendLine("Everything Summary:");
+                graph.AggregateStats.WriteSummaries(everythingSummary);
+
+                StringBuilder nodeSummary = new();
+                graphStartAnalysis.PrintStartAnalysis(nodeSummary);
+
+                File.WriteAllText($"{build.LogFilePath}.criticalpath.txt", string.Join(Environment.NewLine,
+                    nodeSummary.ToString(),
+                    everythingSummary.ToString(),
+                    criticalPathSummary.ToString(),
+                    criticalPathAbbreviated.ToString(),
+                    simulationPathSummary.ToString(),
+                    simulationPathAbbreviated.ToString(),
+                    "---------------------------------",
+                    criticalPathString.ToString(),
+                    simulationPathString.ToString()
+                ));
+            }
+
+        }
+
+        public DependencyGraph2 Graph { get; }
+
         public Timeline(Build build, bool analyzeCpp)
         {
             Populate(build, analyzeCpp: analyzeCpp);
+            Graph = new DependencyGraph2(build);
         }
 
         private void Populate(Build build, bool analyzeCpp = false)
