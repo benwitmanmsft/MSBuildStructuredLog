@@ -267,7 +267,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
         public void RunInBackground(Action action)
         {
-            if (false)
+            if (PlatformUtilities.HasThreads)
             {
                 var task = TPLTask.Run(action);
                 lock (backgroundTasks)

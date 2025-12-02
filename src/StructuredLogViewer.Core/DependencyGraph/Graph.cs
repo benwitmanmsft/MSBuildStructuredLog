@@ -109,6 +109,16 @@ namespace StructuredLogViewer.DependencyGraph
                 return targets[nextTarget].StartTime < endTime && targets[nextTarget].EndTime <= endTime;
             }
 
+            bool IsNextTargetNamed(string name)
+            {
+                if (string.IsNullOrEmpty(name) || nextTarget >= targets.Count)
+                {
+                    return false;
+                }
+
+                return string.Equals(targets[nextTarget].Name, name, StringComparison.OrdinalIgnoreCase);
+            }
+
             TargetBaseNode ProcessTarget(Target target, TargetBaseNode lastTargetBaseNode)
             {
                 TargetBaseNode intraTargetLast = null;
@@ -198,14 +208,17 @@ namespace StructuredLogViewer.DependencyGraph
                                 TargetBaseNode lastCallTargetNode = callTargetStartNode;
                                 var callTargetNames = new Queue<string>(callTargetTask.GetTargets());
 
-                                while (callTargetNames.Count > 0 || IsNextTargetBefore(callTargetTask.EndTime))
+                                // we need to make sure to get all batches, and they can be 0 duration and so not technically be before...
+                                string lastCallTargetName = null;
+
+                                while (callTargetNames.Count > 0 || IsNextTargetBefore(callTargetTask.EndTime) || IsNextTargetNamed(lastCallTargetName))
                                 {
                                     var nextTarget = NextTarget(lastCallTargetNode.PriorTargetNode.GetEnd());
                                     lastCallTargetNode = ProcessTarget(nextTarget, lastCallTargetNode);
 
                                     if (callTargetNames.Count > 0 && string.Equals(callTargetNames.Peek(), nextTarget.Name, StringComparison.OrdinalIgnoreCase))
                                     {
-                                        callTargetNames.Dequeue();
+                                        lastCallTargetName = callTargetNames.Dequeue();
                                     }
                                 }
 
