@@ -153,6 +153,7 @@ namespace StructuredLogViewer.Controls
         private bool _showNodes = true;
         private bool _groupByNodes = true;
         private bool _showProjectReferenceSelection = true;
+        private bool _showCommonP2PTargets = false;
 
         public int numberOfEvaluations = 0;
         public int numberOfProjects = 0;
@@ -160,6 +161,7 @@ namespace StructuredLogViewer.Controls
         public int numberOfTasks = 0;
         public int numberOfNodes = 0;
         public int numberOfCpp = 0;
+        public int numberOfCommonP2PTargets = 0;
 
         public string ShowEvaluationsText => $"Show Evaluations ({numberOfEvaluations})";
 
@@ -173,6 +175,7 @@ namespace StructuredLogViewer.Controls
 
         public string ShowCppText => $"Show Cpp Details ({numberOfCpp})";
 
+        public string ShowCommonP2PTargetsText => $"Show Common P2P Targets ({numberOfCommonP2PTargets})";
 
         public TimeSpan TimelineTime { get; set; }
         private TimeSpan computeTime = TimeSpan.Zero;
@@ -248,6 +251,12 @@ namespace StructuredLogViewer.Controls
                 _showProjectReferenceSelection = value;
                 DrawHighlight();
             }
+        }
+
+        public bool ShowCommonP2PTargets
+        {
+            get => _showCommonP2PTargets;
+            set { _showCommonP2PTargets = value; ComputeAndDraw(); }
         }
 
         public TracingControl()
@@ -425,10 +434,13 @@ namespace StructuredLogViewer.Controls
                             this.numberOfProjects++;
                             break;
                         case Target:
-                            if (!ignoreCommonP2PTargets.Contains((block.Node as Target).Name))
+                            var targetName = (block.Node as Target)?.Name;
+                            if (ignoreCommonP2PTargets.Contains(targetName))
                             {
-                                this.numberOfTargets++;
+                                this.numberOfCommonP2PTargets++;
                             }
+
+                            this.numberOfTargets++;
                             break;
                         case Microsoft.Build.Logging.StructuredLogger.Task:
                             this.numberOfTasks++;
@@ -859,7 +871,7 @@ namespace StructuredLogViewer.Controls
                     case Project:
                         return ShowProject;
                     case Target:
-                        return ShowTarget && !ignoreCommonP2PTargets.Contains((b.Node as Target).Name);
+                        return ShowTarget && (ShowCommonP2PTargets || !ignoreCommonP2PTargets.Contains((b.Node as Target)?.Name));
                     case Microsoft.Build.Logging.StructuredLogger.Task node:
                         // When ShowCpp is enabled, hide the task and show the messages so that only one of them will appear.
                         if (showCppBlocks && node is CppAnalyzer.CppTask cppNode && cppNode.HasTimedBlocks)
