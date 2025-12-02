@@ -13,6 +13,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
         public string SourceFilePath { get; set; }
         public string ParentTarget { get; set; }
         public TargetBuiltReason TargetBuiltReason { get; set; }
+        public TargetSkipReason? TargetSkipReason { get; set; }
         public TimedNode OriginalNode { get; set; }
         public bool Skipped { get; set; }
 

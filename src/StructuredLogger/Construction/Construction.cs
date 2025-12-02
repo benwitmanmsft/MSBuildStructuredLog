@@ -420,6 +420,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
             }
 
             target.Skipped = true;
+            target.TargetSkipReason = args.SkipReason;
         }
 
         private TimedNode FindOriginalTarget(int targetId, Project originalProject, string targetName)
