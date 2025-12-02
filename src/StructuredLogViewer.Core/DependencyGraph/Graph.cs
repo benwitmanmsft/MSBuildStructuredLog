@@ -93,8 +93,8 @@ namespace StructuredLogViewer.DependencyGraph
 
                 Contract.Assert(project.StartTime <= target.StartTime && target.EndTime <= project.EndTime);
 
-                // I've seen cases where targets that are skipped will have their start/end times before the prior target is completed
-                Contract.Assert(lastTargetEnd == null || target.Skipped || lastTargetEnd.Value <= target.StartTime);
+                // I've seen cases where targets with zero duration can be slightly before the prior target, so give it a 1s error of margin that shouldn't be significant in analysis
+                Contract.Assert(lastTargetEnd == null || lastTargetEnd.Value <= (target.StartTime + (target.Duration == TimeSpan.Zero ? TimeSpan.FromSeconds(1) : TimeSpan.Zero)));
 
                 return target;
             }
@@ -203,7 +203,7 @@ namespace StructuredLogViewer.DependencyGraph
                                     var nextTarget = NextTarget(lastCallTargetNode.PriorTargetNode.GetEnd());
                                     lastCallTargetNode = ProcessTarget(nextTarget, lastCallTargetNode);
 
-                                    if (callTargetNames.Count > 0 && callTargetNames.Peek() == nextTarget.Name)
+                                    if (callTargetNames.Count > 0 && string.Equals(callTargetNames.Peek(), nextTarget.Name, StringComparison.OrdinalIgnoreCase))
                                     {
                                         callTargetNames.Dequeue();
                                     }
