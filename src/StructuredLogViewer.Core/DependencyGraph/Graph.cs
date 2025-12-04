@@ -85,7 +85,7 @@ namespace StructuredLogViewer.DependencyGraph
 
             int nextTarget = 0;
 
-            Target NextTarget(DateTime? lastTargetEnd)
+            Target NextTarget(TargetBaseNode lastTargetEnd)
             {
                 Contract.Assert(nextTarget < targets.Count);
 
@@ -93,8 +93,17 @@ namespace StructuredLogViewer.DependencyGraph
 
                 Contract.Assert(project.StartTime <= target.StartTime && target.EndTime <= project.EndTime);
 
-                // I've seen cases where targets with zero duration can be slightly before the prior target, so give it a 1s error of margin that shouldn't be significant in analysis
-                Contract.Assert(lastTargetEnd == null || lastTargetEnd.Value <= (target.StartTime + (target.Duration == TimeSpan.Zero ? TimeSpan.FromSeconds(1) : TimeSpan.Zero)));
+                // I've seen cases where targets with zero duration can be slightly before the prior target so we're only going to enforce on the propr non-zero duration target
+                if (target.Duration > TimeSpan.Zero)
+                {
+                    var lastNonEmpty = lastTargetEnd;
+                    while (lastNonEmpty != null && lastNonEmpty.Target.Duration == TimeSpan.Zero)
+                    {
+                        lastNonEmpty = lastNonEmpty.PriorTargetNode;
+                    }
+
+                    Contract.Assert(lastNonEmpty == null || target.StartTime >= lastNonEmpty.GetEnd());
+                }
 
                 return target;
             }
@@ -213,7 +222,7 @@ namespace StructuredLogViewer.DependencyGraph
 
                                 while (callTargetNames.Count > 0 || IsNextTargetBefore(callTargetTask.EndTime) || IsNextTargetNamed(lastCallTargetName))
                                 {
-                                    var nextTarget = NextTarget(lastCallTargetNode.PriorTargetNode.GetEnd());
+                                    var nextTarget = NextTarget(lastCallTargetNode.PriorTargetNode);
                                     lastCallTargetNode = ProcessTarget(nextTarget, lastCallTargetNode);
 
                                     if (callTargetNames.Count > 0 && string.Equals(callTargetNames.Peek(), nextTarget.Name, StringComparison.OrdinalIgnoreCase))
@@ -266,7 +275,7 @@ namespace StructuredLogViewer.DependencyGraph
             TargetBaseNode lastTargetNode = null;
             while (nextTarget < targets.Count)
             {
-                var target = NextTarget(lastTargetNode?.GetEnd());
+                var target = NextTarget(lastTargetNode);
                 lastTargetNode = ProcessTarget(target, lastTargetNode);
             }
 
