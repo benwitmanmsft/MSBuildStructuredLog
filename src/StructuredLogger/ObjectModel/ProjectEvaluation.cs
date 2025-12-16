@@ -148,5 +148,25 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
             return properties;
         }
+
+        public Dictionary<string, string> GetGlobalProperties()
+        {
+            var properties = new Dictionary<string, string>();
+
+            Folder propertiesFolder = FindChild<Folder>(Strings.Properties);
+            if (propertiesFolder != null)
+            {
+                Folder globalFolder = propertiesFolder.FindChild<Folder>(Strings.Global);
+                if (globalFolder != null)
+                {
+                    foreach (var property in globalFolder.Children.OfType<Property>())
+                    {
+                        properties[property.Name] = property.Value;
+                    }
+                }
+            }
+
+            return properties;
+        }
     }
 }

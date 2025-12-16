@@ -25,6 +25,18 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
             return node.Children.OfType<Message>().ToArray();
         }
+
+        public IEnumerable<BaseNode> GetParameters()
+        {
+            var child = FindChild<Folder>(Strings.Parameters);
+            if (child != null)
+            {
+                foreach (var parameter in child.Children)
+                {
+                    yield return parameter;
+                }
+            }
+        }
     }
 
     /// <summary>
