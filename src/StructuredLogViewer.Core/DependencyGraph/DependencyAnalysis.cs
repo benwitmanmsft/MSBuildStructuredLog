@@ -119,7 +119,7 @@ namespace StructuredLogViewer.DependencyGraph
                 var comparison = realEnd - pathEnd;
                 var comparisonDelta = realDelta - pathDelta;
 
-                var stringIndent = indent ? new string(' ', 4) : string.Empty;
+                var stringIndent = indent ? new string(' ', 1) : string.Empty;
                 var stringDiscovery = isDiscovery.HasValue ? (isDiscovery.Value ? "[F]" : "[D]") : "[ ]";
 
                 criticalPathString.AppendLine($"{stringIndent}={stringDiscovery}=> {pathEnd:G} +{pathDelta:G} {realEnd:G} +{realDelta:G} d:{comparisonDelta:G} {taskEnd:G} +{taskDelta:G} {label}");
