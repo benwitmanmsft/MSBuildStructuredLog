@@ -99,7 +99,36 @@ namespace StructuredLogViewer.DependencyGraph
         {
             criticalPathAbbreviated.AppendLine(@$"{baselineTitle,-10} +delta     ({bestTitle,-10} +delta    ) [loss time  +delta    ] [task time  +delta    ] Description");
 
-            var list = endWalk.Enumerate().Reverse().ToList();
+            var list = endWalk.Enumerate().ToList();
+            HashSet<MSBuildStartNode> endSeen = new();
+            foreach (var walk in list)
+            {
+                if (walk.Node is MSBuildEndNode end && end.Target != null)
+                {
+                    endSeen.Add((MSBuildStartNode)end.PriorTargetNode);
+                }
+            }
+
+            int depth = 0;
+            Dictionary<MSBuildStartNode, int> startDepths = new();
+            Dictionary<GraphWalk, int> depths = new();
+            foreach (var walk in list)
+            {
+                if (walk.Node is MSBuildStartNode start && endSeen.Contains(start))
+                {
+                    depth = startDepths[start];
+                }
+
+                depths[walk] = depth;
+
+                if (walk.Node is MSBuildEndNode end && end.Target != null)
+                {
+                    startDepths[(MSBuildStartNode)end.PriorTargetNode] = depth;
+                    depth++;
+                }
+            }
+
+            list.Reverse();
 
             GraphWalk groupPreviousEdge = null;
             List<GraphWalk> groupContents = null;
@@ -111,6 +140,7 @@ namespace StructuredLogViewer.DependencyGraph
                 TimeSpan realStart, TimeSpan realEnd,
                 TimeSpan taskStart, TimeSpan taskEnd,
                 string label, string labelAbbv,
+                int depth,
                 bool indent, bool? isDiscovery)
             {
                 var pathDelta = pathEnd - pathStart;
@@ -121,9 +151,10 @@ namespace StructuredLogViewer.DependencyGraph
 
                 var stringIndent = indent ? new string(' ', 1) : string.Empty;
                 var stringDiscovery = isDiscovery.HasValue ? (isDiscovery.Value ? "[F]" : "[D]") : "[ ]";
+                var stringDepth = string.Concat(Enumerable.Repeat(' ', depth * 2));
 
                 criticalPathString.AppendLine($"{stringIndent}={stringDiscovery}=> {pathEnd:G} +{pathDelta:G} {realEnd:G} +{realDelta:G} d:{comparisonDelta:G} {taskEnd:G} +{taskDelta:G} {label}");
-                criticalPathAbbreviated.AppendLine($"{stringIndent}{TimeSpanString(realEnd)} {TimeSpanString(realDelta)} ({TimeSpanString(pathEnd)} {TimeSpanString(pathDelta)}) [{TimeSpanString(comparison)} {TimeSpanString(comparisonDelta)}] [{TimeSpanString(taskEnd)} {TimeSpanString(taskDelta)}] {labelAbbv}");
+                criticalPathAbbreviated.AppendLine($"{stringIndent}{TimeSpanString(realEnd)} {TimeSpanString(realDelta)} ({TimeSpanString(pathEnd)} {TimeSpanString(pathDelta)}) [{TimeSpanString(comparison)} {TimeSpanString(comparisonDelta)}] [{TimeSpanString(taskEnd)} {TimeSpanString(taskDelta)}] {stringDepth}{labelAbbv}");
             }
 
             TimeSpan totalTaskDuration = TimeSpan.Zero;
@@ -134,7 +165,7 @@ namespace StructuredLogViewer.DependencyGraph
                 var pathStart = lastNodePrinted?.CriticalPathTime ?? TimeSpan.Zero;
                 var taskStart = totalTaskDuration;
                 totalTaskDuration += node.GetTaskDuration();
-                PrintElement(pathStart, walk.CriticalPathTime.Value, lastNodePrinted?.BaselineTime.Value ?? TimeSpan.Zero, walk.BaselineTime.Value, taskStart, totalTaskDuration, node.ToString(), node.ToPrettyString(), indent, isDiscovery);
+                PrintElement(pathStart, walk.CriticalPathTime.Value, lastNodePrinted?.BaselineTime.Value ?? TimeSpan.Zero, walk.BaselineTime.Value, taskStart, totalTaskDuration, node.ToString(), node.ToPrettyString(), depths[walk], indent, isDiscovery);
                 lastNodePrinted = walk;
             }
 
@@ -201,7 +232,7 @@ namespace StructuredLogViewer.DependencyGraph
                     var lastGroupMember = groupContents.Last();
                     var groupTaskDurationEnd = groupPreviousTaskDuration + groupContents.Aggregate(TimeSpan.Zero, (a, t) => a + t.Node.GetTaskDuration());
 
-                    PrintElement(groupPreviousEdge.CriticalPathTime.Value, lastGroupMember.CriticalPathTime.Value, groupPreviousEdge.BaselineTime.Value, lastGroupMember.BaselineTime.Value, groupPreviousTaskDuration, groupTaskDurationEnd, $"Group: {types}", abbv, false, null);
+                    PrintElement(groupPreviousEdge.CriticalPathTime.Value, lastGroupMember.CriticalPathTime.Value, groupPreviousEdge.BaselineTime.Value, lastGroupMember.BaselineTime.Value, groupPreviousTaskDuration, groupTaskDurationEnd, $"Group: {types}", abbv, depths[lastGroupMember], false, null);
 
                     foreach (var member in groupContents)
                     {
