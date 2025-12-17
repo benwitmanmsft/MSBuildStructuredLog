@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
+using System.IO;
 using System.Linq;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Logging.StructuredLogger;
@@ -333,6 +334,18 @@ namespace StructuredLogViewer.DependencyGraph
             foreach (var node in Nodes)
             {
                 AggregateStats.AddNode(node);
+            }
+        }
+
+        public void Write(string filename)
+        {
+            using (var writer = new StreamWriter(filename))
+            {
+                foreach (var node in Nodes.OrderBy(n => n.GetEnd()))
+                {
+                    node.Write(writer);
+                    writer.WriteLine();
+                }
             }
         }
     }

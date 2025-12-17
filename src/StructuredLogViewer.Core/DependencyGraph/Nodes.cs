@@ -21,7 +21,18 @@ namespace StructuredLogViewer.DependencyGraph
 
         public abstract DateTime GetEnd();
 
+        public abstract string IdString();
+
         public abstract string ToPrettyString();
+        
+        public void Write(TextWriter writer)
+        {
+            writer.WriteLine($"{IdString()}: {ToPrettyString()}");
+            writer.WriteLine($"Dependencies: {string.Join(", ", GetDependencies().Select(t => t.IdString()))}");
+            writer.WriteLine($"DiscoveredBy: {string.Join(", ", DiscoveredBy.Select(t => t.IdString()))}");
+            if (this is MSBuildStartNode start)
+                writer.WriteLine($"Discovers: {string.Join(", ", start.Discovered.Select(t => t.IdString()))}");
+        }
     }
 
     public class EmptyProjectBuildNode : BaseNode
@@ -39,7 +50,9 @@ namespace StructuredLogViewer.DependencyGraph
 
         public override DateTime GetEnd() => Project.EndTime;
 
-        public override string ToString() => $"No Targets Built   Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}:";
+        public override string IdString() => $"Empty:{EvaluationNode.IdString()}";
+
+        public override string ToString() => $"No Targets Built   Build:{Project.Id:D4} Eval:{EvaluationNode.NameString} {Project.ProjectFile}:";
 
         public override string ToPrettyString() => $"{EvaluationNode.ToPrettyString()}: No Targets Built";
     }
@@ -80,6 +93,8 @@ namespace StructuredLogViewer.DependencyGraph
     {
         public TargetBaseNode CachedTarget;
 
+        public override string IdString() => $"FromCache:{Target.Index}";
+
         public override string ToString()
         {
             return $"Target From Cache  Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}: {Target.Name}";
@@ -99,6 +114,8 @@ namespace StructuredLogViewer.DependencyGraph
     public class TargetSkippedNode : TargetBaseNode
     {
         public TargetSkipReason SkipReason;
+
+        public override string IdString() => $"Skipped:{Target.Index}";
 
         public override string ToString()
         {
@@ -126,6 +143,8 @@ namespace StructuredLogViewer.DependencyGraph
         private string TaskNames => Tasks.Count == 0 ? "(no tasks)" : string.Join(", ", Tasks.Select(t => t.Name));
 
         private string DisplayString => TaskNames + (CopiedFiles.HasValue ? $" (copied {CopiedFiles} files)" : string.Empty);
+
+        public override string IdString() => $"Target:{Target.Index}:Tasks:{Index}";
 
         public override string ToString()
         {
@@ -159,6 +178,8 @@ namespace StructuredLogViewer.DependencyGraph
         public CallTargetTask Task;
         public int Index = 0;
 
+        public override string IdString() => $"Target:{Target.Index}:CallTargetStart:{Index}";
+
         public override string ToString()
         {
             return $"CallTarget Start   Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}: {Target.Name}: CallTarget #{Index}";
@@ -180,6 +201,8 @@ namespace StructuredLogViewer.DependencyGraph
         public CallTargetTask Task;
         public int Index = 0;
         public TargetBaseNode CalledTarget;
+
+        public override string IdString() => $"Target:{Target.Index}:CallTargetEnd:{Index}";
 
         public override string ToString()
         {
@@ -205,6 +228,8 @@ namespace StructuredLogViewer.DependencyGraph
         public HashSet<BaseNode> Discovered = new();
         public TimeSpan EmptyDuration;
 
+        public override string IdString() => Target == null ? $"SentinelStart" : $"Target:{Target.Index}:MSBuildStart:{Index}";
+
         public override string ToString()
         {
             return Target == null
@@ -229,6 +254,8 @@ namespace StructuredLogViewer.DependencyGraph
         public MSBuildTask Task;
         public int Index;
         public List<BaseNode> ProjectLastTargetNodes;
+
+        public override string IdString() => Target == null ? $"SentinelEnd" : $"Target:{Target.Index}:MSBuildEnd:{Index}";
 
         public override string ToString()
         {
@@ -259,7 +286,8 @@ namespace StructuredLogViewer.DependencyGraph
             string.Empty :
             $" ({string.Join(", ", UniqueGlobalProperties.OrderBy(t => t.Key).Select(kv => $"{kv.Key}={kv.Value}"))})";
 
-        public string PrettyName => $"{Path.GetFileName(Evaluation.ProjectFile)}{UniqueGlobalPropertiesString}";
+        public override string IdString() => $"Evaluation:{Evaluation.Id}";
+
 
         public override string ToString()
         {
@@ -284,6 +312,8 @@ namespace StructuredLogViewer.DependencyGraph
         public string TargetName;
 
         public override ProjectEvaluationNode TheEvaluation => RequestingNode.EvaluationNode;
+
+        public override string IdString() => $"FromResultsCache:{RequestingNode.EvaluationNode.IdString()}:{TargetName}";
 
         public override string ToString()
         {
