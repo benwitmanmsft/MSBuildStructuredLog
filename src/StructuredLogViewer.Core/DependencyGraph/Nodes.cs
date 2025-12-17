@@ -97,7 +97,7 @@ namespace StructuredLogViewer.DependencyGraph
 
         public override string ToString()
         {
-            return $"Target From Cache  Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}: {Target.Name}";
+            return $"Target From Cache  Build:{Project.Id:D4} Eval:{EvaluationNode.NameString} {Project.ProjectFile}: {Target.Name}";
         }
 
         public override string ToPrettyString() => $"{EvaluationNode.PrettyName}: {Target.Name} (From Cache)";
@@ -119,7 +119,7 @@ namespace StructuredLogViewer.DependencyGraph
 
         public override string ToString()
         {
-            return $"Target Skipped     Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}: {Target.Name}: {SkipReason}";
+            return $"Target Skipped     Build:{Project.Id:D4} Eval:{EvaluationNode.NameString} {Project.ProjectFile}: {Target.Name}: {SkipReason}";
         }
 
         public override string ToPrettyString() => $"{EvaluationNode.PrettyName}: Skipped {Target.Name}: {SkipReason}";
@@ -148,7 +148,7 @@ namespace StructuredLogViewer.DependencyGraph
 
         public override string ToString()
         {
-            return $"Target Exec Tasks  Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}: {Target.Name}: {DisplayString}";
+            return $"Target Exec Tasks  Build:{Project.Id:D4} Eval:{EvaluationNode.NameString} {Project.ProjectFile}: {Target.Name}: {DisplayString}";
         }
 
         public override string ToPrettyString() => $"{EvaluationNode.PrettyName}: {Target.Name}: {DisplayString}";
@@ -182,7 +182,7 @@ namespace StructuredLogViewer.DependencyGraph
 
         public override string ToString()
         {
-            return $"CallTarget Start   Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}: {Target.Name}: CallTarget #{Index}";
+            return $"CallTarget Start   Build:{Project.Id:D4} Eval:{EvaluationNode.NameString} {Project.ProjectFile}: {Target.Name}: CallTarget #{Index}";
         }
 
         public override string ToPrettyString() => $"{EvaluationNode.PrettyName}: {Target.Name}: CallTarget Start #{Index}";
@@ -206,7 +206,7 @@ namespace StructuredLogViewer.DependencyGraph
 
         public override string ToString()
         {
-            return $"CallTarget End     Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}: {Target.Name}: CallTarget #{Index}";
+            return $"CallTarget End     Build:{Project.Id:D4} Eval:{EvaluationNode.NameString} {Project.ProjectFile}: {Target.Name}: CallTarget #{Index}";
         }
 
         public override string ToPrettyString() => $"{EvaluationNode.PrettyName}: {Target.Name}: CallTarget End #{Index}";
@@ -234,7 +234,7 @@ namespace StructuredLogViewer.DependencyGraph
         {
             return Target == null
                 ? $"Sentinel Start"
-                : $"MSBuild Call Start Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}:{Target.Name}: #{Index} {Task.SourceFilePath}:{Task.LineNumber}";
+                : $"MSBuild Call Start Build:{Project.Id:D4} Eval:{EvaluationNode.NameString} {Project.ProjectFile}:{Target.Name}: #{Index} {Task.SourceFilePath}:{Task.LineNumber}";
         }
 
         public override string ToPrettyString() => Target == null ? "Start" : $"{EvaluationNode.PrettyName}: {Target.Name}: MSBuild Start #{Index}";
@@ -261,7 +261,7 @@ namespace StructuredLogViewer.DependencyGraph
         {
             return Target == null
                 ? $"Sentinel End"
-                : $"MSBuild Call End   Build:{Project.Id:D4} Eval:{EvaluationNode.Evaluation.Id:D4} {Project.ProjectFile}:{Target.Name}: #{Index} {Task.SourceFilePath}:{Task.LineNumber}";
+                : $"MSBuild Call End   Build:{Project.Id:D4} Eval:{EvaluationNode.NameString} {Project.ProjectFile}:{Target.Name}: #{Index} {Task.SourceFilePath}:{Task.LineNumber}";
         }
 
         public override string ToPrettyString() => Target == null ? "End" : $"{EvaluationNode.PrettyName}: {Target.Name}: MSBuild End #{Index}";
@@ -275,7 +275,44 @@ namespace StructuredLogViewer.DependencyGraph
         public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
     }
 
-    public class ProjectEvaluationNode : BaseNode
+    public abstract class ProjectEvaluationNode : BaseNode
+    {
+        public override ProjectEvaluationNode TheEvaluation => this;
+
+        public abstract int NodeId { get; }
+
+        public abstract string PrettyName { get; }
+
+        public abstract string NameString { get; }
+    }
+
+    public class MetaProjEvaluationNode : ProjectEvaluationNode
+    {
+        public string MetaProjFileName = null;
+
+        public override string PrettyName => Path.GetFileName(MetaProjFileName);
+
+        public override string NameString => $"Meta";
+
+        public override string IdString() => $"MetaProj:{MetaProjFileName}";
+
+        public override string ToString() => $"Evaluation                    Eval:{NameString} {MetaProjFileName}";
+
+        public override string ToPrettyString() => $"{PrettyName}: Evaluation";
+
+        public override IEnumerable<BaseNode> GetDependencies() => [];
+
+        public override TimeSpan GetDuration() => TimeSpan.Zero;
+
+        public override DateTime GetEnd() => DiscoveredBy.First().GetEnd();
+
+        public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+
+        public override int NodeId => -1;
+
+    }
+
+    public class RealProjectEvaluationNode : ProjectEvaluationNode
     {
         public ProjectEvaluation Evaluation;
         public Dictionary<string, string> UniqueGlobalProperties;
@@ -288,11 +325,12 @@ namespace StructuredLogViewer.DependencyGraph
 
         public override string IdString() => $"Evaluation:{Evaluation.Id}";
 
+        public override string PrettyName => $"{Path.GetFileName(Evaluation.ProjectFile)}{UniqueGlobalPropertiesString}";
 
-        public override string ToString()
-        {
-            return $"Evaluation                    Eval:{Evaluation.Id:D4} {Evaluation.SourceFilePath} {UniqueGlobalPropertiesString}";
-        }
+        public override string NameString => $"{Evaluation.Id}";
+
+        public override string ToString() =>
+            $"Evaluation                    Eval:{Evaluation.Id:D4} {Evaluation.SourceFilePath} {UniqueGlobalPropertiesString}";
 
         public override string ToPrettyString() => $"{PrettyName}: Evaluation";
 
@@ -303,6 +341,8 @@ namespace StructuredLogViewer.DependencyGraph
         public override DateTime GetEnd() => Evaluation.EndTime;
 
         public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+
+        public override int NodeId => Evaluation.NodeId;
     }
 
     public class TargetFromResultsCache : BaseNode

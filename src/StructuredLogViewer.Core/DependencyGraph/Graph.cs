@@ -12,7 +12,8 @@ namespace StructuredLogViewer.DependencyGraph
     {
         public Build Build;
         public HashSet<BaseNode> Nodes = new();
-        public Dictionary<int, ProjectEvaluationNode> EvaluationNodes = new();
+        public Dictionary<int, RealProjectEvaluationNode> EvaluationNodes = new();
+        public Dictionary<string, MetaProjEvaluationNode> MetaProjEvaluationNodes = new(StringComparer.InvariantCultureIgnoreCase);
         public MSBuildStartNode StartNode;
         public MSBuildEndNode EndNode;
         public AggregateStats AggregateStats = new();
@@ -24,9 +25,16 @@ namespace StructuredLogViewer.DependencyGraph
         {
             Nodes.Add(node);
 
-            if (node is ProjectEvaluationNode evaluationNode)
+            switch (node)
             {
-                EvaluationNodes.Add(evaluationNode.Evaluation.Id, evaluationNode);
+                case RealProjectEvaluationNode realEvaluationNode:
+                    EvaluationNodes.Add(realEvaluationNode.Evaluation.Id, realEvaluationNode);
+                    break;
+                case MetaProjEvaluationNode metaProjEvaluationNode:
+                    MetaProjEvaluationNodes.Add(metaProjEvaluationNode.MetaProjFileName, metaProjEvaluationNode);
+                    break;
+                default:
+                    break;
             }
 
             return node;
@@ -44,30 +52,43 @@ namespace StructuredLogViewer.DependencyGraph
                 return node;
             }
 
-            var evaluation = project.GetEvaluation(Build);
-            if (evaluation == null)
+            ProjectEvaluationNode evaluationNode = null;
+            if (project.ProjectFile.EndsWith(".metaproj", StringComparison.InvariantCultureIgnoreCase))
             {
-                foreach (var target in project.Children.OfType<Target>())
+                if (!MetaProjEvaluationNodes.TryGetValue(project.ProjectFile, out var metaProjectEvaluationNode))
                 {
-                    if (target.OriginalNode != null)
+                    metaProjectEvaluationNode = ProcessCreatedNode(new MetaProjEvaluationNode() { MetaProjFileName = project.ProjectFile });
+                }
+
+                evaluationNode = metaProjectEvaluationNode;
+            }
+            else
+            {
+                var evaluation = project.GetEvaluation(Build);
+                if (evaluation == null)
+                {
+                    foreach (var target in project.Children.OfType<Target>())
                     {
-                        evaluation = target.OriginalNode.GetNearestParent<Project>().GetEvaluation(Build);
-                        break;
+                        if (target.OriginalNode != null)
+                        {
+                            evaluation = target.OriginalNode.GetNearestParent<Project>().GetEvaluation(Build);
+                            break;
+                        }
+                    }
+
+                    if (evaluation == null)
+                    {
+                        return UpdateCreatedBaseNode(new TargetFromResultsCache()
+                        {
+                            Project = project,
+                            RequestingNode = requestingNode,
+                            TargetName = project.Children.OfType<Folder>().SingleOrDefault(t => t.Name == Strings.EntryTargets)?.Children.OfType<EntryTarget>().Select(t => t.Name).Single() ?? "<default>"
+                        });
                     }
                 }
 
-                if (evaluation == null)
-                {
-                    return UpdateCreatedBaseNode(new TargetFromResultsCache()
-                    {
-                        Project = project,
-                        RequestingNode = requestingNode,
-                        TargetName = project.Children.OfType<Folder>().Single(t => t.Name == Strings.EntryTargets).Children.OfType<EntryTarget>().Select(t => t.Name).Single()
-                    });
-                }
+                evaluationNode = EvaluationNodes[evaluation.Id];
             }
-
-            var evaluationNode = EvaluationNodes[evaluation.Id];
 
             evaluationNode.DiscoveredBy.Add(requestingNode);
             requestingNode.Discovered.Add(evaluationNode);
@@ -298,7 +319,7 @@ namespace StructuredLogViewer.DependencyGraph
             // Create Evaluation Nodes
             foreach (var evaluation in Build.EvaluationFolder.Children.OfType<ProjectEvaluation>())
             {
-                var evaluationNode = ProcessCreatedNode(new ProjectEvaluationNode() { Evaluation = evaluation });
+                var evaluationNode = ProcessCreatedNode(new RealProjectEvaluationNode() { Evaluation = evaluation });
             }
 
             // Construct Build Graph
@@ -307,7 +328,7 @@ namespace StructuredLogViewer.DependencyGraph
             EndNode.ProjectLastTargetNodes = Build.Children.OfType<Project>().Select(p => ProcessProject(p, StartNode)).ToList();
 
             // Determine UniqueGlobalProperties
-            foreach (var projectGroup in Nodes.OfType<ProjectEvaluationNode>().GroupBy(t => t.Evaluation.ProjectFile))
+            foreach (var projectGroup in Nodes.OfType<RealProjectEvaluationNode>().GroupBy(t => t.Evaluation.ProjectFile))
             {
                 var common = projectGroup
                     .Select(t => t.Evaluation.GetGlobalProperties())

@@ -43,7 +43,7 @@ namespace StructuredLogViewer.DependencyGraph
                 TargetDurations.GetOrAddNew(taskNode.Target.Name).GetOrAddNew(taskNode.Target).Add(taskNode.GetDuration());
                 TargetTaskDurations.GetOrAddNew(taskNode.Target.Name).GetOrAddNew(taskNode.Target).Add(tasksDuration);
                 EvaluationTargetDurations.GetOrAddNew(taskNode.EvaluationNode.ToPrettyString()).GetOrAddNew(taskNode.Target).Add(taskNode.GetDuration());
-                NodeTargetDurations.GetOrAddNew(taskNode.EvaluationNode.Evaluation.NodeId.ToString()).GetOrAddNew(taskNode.Target).Add(tasksDuration);
+                NodeTargetDurations.GetOrAddNew(taskNode.EvaluationNode.NodeId.ToString()).GetOrAddNew(taskNode.Target).Add(tasksDuration);
             }
         }
 

@@ -10,8 +10,8 @@ namespace StructuredLogViewer.DependencyGraph
     {
         public Graph Graph;
         public TimeSpan TimeToFirstEvaluation;
-        public Dictionary<int, List<ProjectEvaluationNode>> NodeEvaluations;
-        public Dictionary<int, (TimeSpan StartTime, int Id, ProjectEvaluationNode Node)> NodeFirstEvaluation;
+        public Dictionary<int, List<RealProjectEvaluationNode>> NodeEvaluations;
+        public Dictionary<int, (TimeSpan StartTime, int Id, RealProjectEvaluationNode Node)> NodeFirstEvaluation;
 
         public StartAnalysis(Graph graph)
         {
@@ -33,7 +33,7 @@ namespace StructuredLogViewer.DependencyGraph
             TimeToFirstEvaluation = firstEvaluationTime - graph.StartNode.CustomStartTime.Value;
 
             NodeEvaluations = graph.Nodes
-                .OfType<ProjectEvaluationNode>()
+                .OfType<RealProjectEvaluationNode>()
                 .Where(t => t.Evaluation.StartTime >= firstEvaluationTime)
                 .GroupBy(t => t.Evaluation.NodeId)
                 .ToDictionary(t => t.Key, t => t.ToList());
