@@ -168,6 +168,19 @@ namespace StructuredLogViewer.DependencyGraph
                                 .Select(t => (Targets: 1, Tasks: t.Sum(u => u.Tasks.Count)))
                                 .Aggregate((Targets: 0, Tasks: 0), (a, b) => (a.Targets + b.Targets, a.Tasks + b.Tasks));
 
+                            if (executedStats.Targets == 0 && executedStats.Tasks == 0 && u.All(t => t is MSBuildStartNode || t is MSBuildEndNode))
+                            {
+                                return $"{u.Key.PrettyName}: {(u.First() as TargetBaseNode).Target.Name}";
+                            }
+
+                            string firstLast = "";
+                            if (u.OfType<TargetBaseNode>().Any())
+                            {
+                                var firstTargetName = u.OfType<TargetBaseNode>().FirstOrDefault().Target.Name;
+                                var lastTargetName = u.OfType<TargetBaseNode>().LastOrDefault().Target.Name;
+                                firstLast = $": {firstTargetName} => {lastTargetName}";
+                            }
+
                             var cachedCount = u.OfType<TargetFromCacheNode>().Count();
                             var skippedCount = u.OfType<TargetSkippedNode>().Count();
                             List<string> cachedAndSkipped = new();
@@ -182,7 +195,7 @@ namespace StructuredLogViewer.DependencyGraph
                                 cachedAndSkipped.Add($"{skippedCount} Skipped");
                             }
 
-                            return $"{u.Key.PrettyName}: {executedStats.Targets} Targets | {executedStats.Tasks} Tasks {(cachedAndSkipped.Count > 0 ? $" +({string.Join(", ", cachedAndSkipped)})" : "")}";
+                            return $"{u.Key.PrettyName}: {executedStats.Targets} Targets | {executedStats.Tasks} Tasks {(cachedAndSkipped.Count > 0 ? $" +({string.Join(", ", cachedAndSkipped)})" : "")}{firstLast}";
                         }));
 
                     var lastGroupMember = groupContents.Last();
