@@ -215,7 +215,7 @@ namespace StructuredLogViewer.DependencyGraph
                         FlushGroup();
                     }
 
-                    if ((walk.CriticalPathTime.Value - lastWalk.CriticalPathTime.Value) < threshold)
+                    if ((walk.CriticalPathTime.Value - lastWalk.CriticalPathTime.Value) < threshold && !walk.Node.NeverGroup())
                     {
                         if (groupContents == null)
                         {

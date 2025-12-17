@@ -24,7 +24,9 @@ namespace StructuredLogViewer.DependencyGraph
         public abstract string IdString();
 
         public abstract string ToPrettyString();
-        
+
+        public abstract bool NeverGroup();
+
         public void Write(TextWriter writer)
         {
             writer.WriteLine($"{IdString()}: {ToPrettyString()}");
@@ -55,6 +57,8 @@ namespace StructuredLogViewer.DependencyGraph
         public override string ToString() => $"No Targets Built   Build:{Project.Id:D4} Eval:{EvaluationNode.NameString} {Project.ProjectFile}:";
 
         public override string ToPrettyString() => $"{EvaluationNode.ToPrettyString()}: No Targets Built";
+
+        public override bool NeverGroup() => false;
     }
 
     public abstract class TargetBaseNode : BaseNode
@@ -109,6 +113,8 @@ namespace StructuredLogViewer.DependencyGraph
         public override DateTime GetEnd() => Target.EndTime;
 
         public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+
+        public override bool NeverGroup() => false;
     }
 
     public class TargetSkippedNode : TargetBaseNode
@@ -131,6 +137,8 @@ namespace StructuredLogViewer.DependencyGraph
         public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
 
         public override DateTime GetEnd() => Target.EndTime;
+
+        public override bool NeverGroup() => false;
     }
 
     public class TargetTaskNode : TargetBaseNode
@@ -171,6 +179,8 @@ namespace StructuredLogViewer.DependencyGraph
         public override TimeSpan GetTaskDuration() => Tasks.Aggregate(TimeSpan.Zero, (ts, task) => ts + task.Duration);
 
         public override DateTime GetEnd() => OverrideEndTime ?? (IsEnd ? Target.EndTime : Tasks.Last().EndTime);
+
+        public override bool NeverGroup() => CopiedFiles > 0;
     }
 
     public class CallTargetStartNode : TargetBaseNode
@@ -194,6 +204,8 @@ namespace StructuredLogViewer.DependencyGraph
         public override DateTime GetEnd() => Task.StartTime;
 
         public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+
+        public override bool NeverGroup() => false;
     }
 
     public class CallTargetEndNode : TargetBaseNode
@@ -218,6 +230,8 @@ namespace StructuredLogViewer.DependencyGraph
         public override DateTime GetEnd() => Task.EndTime;
 
         public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+
+        public override bool NeverGroup() => false;
     }
 
     public class MSBuildStartNode : TargetBaseNode
@@ -246,6 +260,8 @@ namespace StructuredLogViewer.DependencyGraph
         public override DateTime GetEnd() => CustomStartTime ?? Task.StartTime;
 
         public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+
+        public override bool NeverGroup() => false;
     }
 
     public class MSBuildEndNode : TargetBaseNode
@@ -273,6 +289,8 @@ namespace StructuredLogViewer.DependencyGraph
         public override DateTime GetEnd() => CustomEndTime ?? (IsEnd ? Target.EndTime : Task.EndTime);
 
         public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
+
+        public override bool NeverGroup() => false;
     }
 
     public abstract class ProjectEvaluationNode : BaseNode
@@ -308,6 +326,8 @@ namespace StructuredLogViewer.DependencyGraph
 
         public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
 
+        public override bool NeverGroup() => true;
+
         public override int NodeId => -1;
 
     }
@@ -342,6 +362,8 @@ namespace StructuredLogViewer.DependencyGraph
 
         public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
 
+        public override bool NeverGroup() => true;
+
         public override int NodeId => Evaluation.NodeId;
     }
 
@@ -369,5 +391,7 @@ namespace StructuredLogViewer.DependencyGraph
         public override TimeSpan GetTaskDuration() => TimeSpan.Zero;
 
         public override IEnumerable<BaseNode> GetDependencies() => [];
+
+        public override bool NeverGroup() => false;
     }
 }
