@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Linq;
+using System.Text;
 
 namespace Microsoft.Build.Logging.StructuredLogger
 {
@@ -31,7 +32,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
             var text = node.GetFullText();
 
-            sb.AppendLine(text);
+            sb.AppendLine(text.Replace("\n", "\n" + string.Concat(Enumerable.Repeat(' ', indent * 4))));
 
             if (node is TreeNode { HasChildren: true } treeNode)
             {
