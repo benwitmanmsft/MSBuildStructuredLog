@@ -11,7 +11,7 @@ namespace StructuredLogViewer.DependencyGraph
     {
         public HashSet<MSBuildStartNode> DiscoveredBy = new();
 
-        public abstract ProjectEvaluation TheEvaluation { get; }
+        public abstract ProjectEvaluationNode TheEvaluation { get; }
 
         public abstract IEnumerable<BaseNode> GetDependencies();
 
@@ -29,7 +29,7 @@ namespace StructuredLogViewer.DependencyGraph
         public Project Project;
         public ProjectEvaluationNode EvaluationNode;
 
-        public override ProjectEvaluation TheEvaluation => EvaluationNode.Evaluation;
+        public override ProjectEvaluationNode TheEvaluation => EvaluationNode;
 
         public override IEnumerable<BaseNode> GetDependencies() => [EvaluationNode];
 
@@ -54,7 +54,7 @@ namespace StructuredLogViewer.DependencyGraph
         public bool IsStart = true;
         public bool IsEnd = true;
 
-        public override ProjectEvaluation TheEvaluation => Target == null ? null : EvaluationNode.Evaluation;
+        public override ProjectEvaluationNode TheEvaluation => Target == null ? null : EvaluationNode;
 
         public override sealed IEnumerable<BaseNode> GetDependencies()
         {
@@ -252,7 +252,7 @@ namespace StructuredLogViewer.DependencyGraph
         public ProjectEvaluation Evaluation;
         public Dictionary<string, string> UniqueGlobalProperties;
 
-        public override ProjectEvaluation TheEvaluation => Evaluation;
+        public override ProjectEvaluationNode TheEvaluation => this;
 
         public string UniqueGlobalPropertiesString => UniqueGlobalProperties.Count == 0 ?
             string.Empty :
@@ -282,7 +282,7 @@ namespace StructuredLogViewer.DependencyGraph
         public Project Project;
         public string TargetName;
 
-        public override ProjectEvaluation TheEvaluation => RequestingNode.EvaluationNode.Evaluation;
+        public override ProjectEvaluationNode TheEvaluation => RequestingNode.EvaluationNode;
 
         public override string ToString()
         {
