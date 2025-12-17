@@ -18,7 +18,7 @@ namespace StructuredLogViewer.DependencyGraph
         public MSBuildEndNode EndNode;
         public AggregateStats AggregateStats = new();
 
-        private List<(Target dependency, TargetFromCacheNode dependent)> AlreadyBuilt = new();
+        private List<(Target execution, TargetFromCacheNode fromCache)> AlreadyBuilt = new();
         private Dictionary<Target, TargetBaseNode> TargetToLastNode = new();
 
         private T ProcessCreatedNode<T>(T node) where T : BaseNode
@@ -345,8 +345,23 @@ namespace StructuredLogViewer.DependencyGraph
             // Process Already Built Targets
             foreach (var already in AlreadyBuilt)
             {
-                var (dependency, dependent) = already;
-                dependent.CachedTarget = TargetToLastNode[dependency];
+                var (execution, fromCache) = already;
+                fromCache.CachedTarget = TargetToLastNode[execution];
+
+                foreach (var startNode in fromCache.DiscoveredBy)
+                {
+                    startNode.Discovered.Add(fromCache.CachedTarget.EvaluationNode);
+                    fromCache.CachedTarget.EvaluationNode.DiscoveredBy.Add(startNode);
+                }
+                
+                for (var i = TargetToLastNode[execution]; i != null; i = i.PriorTargetNode)
+                {
+                    foreach (var startNode in fromCache.DiscoveredBy)
+                    {
+                        startNode.Discovered.Add(i);
+                        i.DiscoveredBy.Add(startNode);
+                    }
+                }
             }
 
             AlreadyBuilt.Clear();
