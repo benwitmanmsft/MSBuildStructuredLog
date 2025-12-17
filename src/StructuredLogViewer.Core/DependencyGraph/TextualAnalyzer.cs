@@ -11,6 +11,8 @@ namespace StructuredLogViewer.DependencyGraph
         public static void Run(Build build)
         {
             var graph = new Graph(build);
+            graph.Write(graph.Build.LogFilePath + ".graph.txt");
+
             var graphStartAnalysis = new StartAnalysis(graph);
             var graphCriticalPathAnalysis = new CriticalPathAnalysis(graph);
 
