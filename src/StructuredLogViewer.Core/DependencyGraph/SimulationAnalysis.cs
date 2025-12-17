@@ -42,9 +42,10 @@ namespace StructuredLogViewer.DependencyGraph
             public TimeSpan Time;
             public GraphWalk Walk;
             public TimeSpan RemainingCriticalPath;
+            public int? Worker;
         }
 
-        public SimulationAnalysis(Graph graph, CriticalPathAnalysis criticalPathAnalysis, int workers, Action<SimulationStep> stepCallback)
+        public SimulationAnalysis(Graph graph, CriticalPathAnalysis criticalPathAnalysis, int workers, Dictionary<RealProjectEvaluationNode, int> affinity, Action<SimulationStep> stepCallback)
         {
             Graph = graph;
 
@@ -108,38 +109,51 @@ namespace StructuredLogViewer.DependencyGraph
                 Satisfy(dependentWalkNode);
             }
 
-            SortedSet<(TimeSpan RemainingCriticalPath, int Id, GraphWalk Walk)> ready = new();
-            SortedSet<(TimeSpan SimulatedEndTime, int Id, GraphWalk Walk)> inProgress = new();
+            int? GetAffinity(BaseNode node) => affinity != null && node.TheEvaluation is RealProjectEvaluationNode realNode ? affinity[realNode] : null;
+
+            SortedSet<(TimeSpan RemainingCriticalPath, int Id, int? WorkerId, GraphWalk Walk)> ready = new();
+            SortedSet<(TimeSpan SimulatedEndTime, int Id, int ? WorkerId, GraphWalk Walk)> inProgress = new();
 
             TimeSpan currentTime = TimeSpan.Zero;
 
             var dependencyAnalysis = new DependencyAnalysis(graph, walk =>
             {
-                stepCallback?.Invoke(new SimulationStep() { StepType = StepType.Ready, Time = currentTime, Walk = walk, RemainingCriticalPath = nodeToDependentWalkNode[walk.Node].RemainingCriticalPath.Value });
-                ready.Add((nodeToDependentWalkNode[walk.Node].RemainingCriticalPath.Value, walk.Id, walk));
+                var workerId = GetAffinity(walk.Node);
+                stepCallback?.Invoke(new SimulationStep() { StepType = StepType.Ready, Time = currentTime, Walk = walk, RemainingCriticalPath = nodeToDependentWalkNode[walk.Node].RemainingCriticalPath.Value, Worker = workerId });
+                ready.Add((nodeToDependentWalkNode[walk.Node].RemainingCriticalPath.Value, walk.Id, workerId, walk));
             });
+
+            HashSet<int> workersInUse = new();
 
             while (ready.Any() || inProgress.Any())
             {
-                while (inProgress.Count < workers && ready.Any())
+                while (inProgress.Count < workers && ready.Reverse().FirstOrDefault(t => !(t.WorkerId.HasValue && workersInUse.Contains(t.WorkerId.Value))) is { Walk: { } } next)
                 {
-                    var next = ready.Max;
                     ready.Remove(next);
-                    stepCallback?.Invoke(new SimulationStep() { StepType = StepType.Start, Time = currentTime, Walk = next.Walk, RemainingCriticalPath = nodeToDependentWalkNode[next.Walk.Node].RemainingCriticalPath.Value });
+                    stepCallback?.Invoke(new SimulationStep() { StepType = StepType.Start, Time = currentTime, Walk = next.Walk, RemainingCriticalPath = nodeToDependentWalkNode[next.Walk.Node].RemainingCriticalPath.Value, Worker = next.WorkerId });
                     var criticalPathWalk = criticalPathAnalysis.CriticalPaths[next.Walk.Node].CriticalPath;
                     next.Walk.CriticalPath = criticalPathWalk == null ? null : dependencyAnalysis.NodeToWalk[criticalPathWalk.Node];
                     next.Walk.CriticalPathTime = currentTime + next.Walk.Node.GetDuration();
                     next.Walk.CriticalPathIsDiscovery = criticalPathAnalysis.CriticalPaths[next.Walk.Node].CriticalPathIsDiscovery;
                     next.Walk.BaselineTime = criticalPathAnalysis.CriticalPaths[next.Walk.Node].CriticalPathTime.Value;
-                    inProgress.Add((currentTime + next.Walk.Node.GetDuration(), next.Id, next.Walk));
+                    inProgress.Add((currentTime + next.Walk.Node.GetDuration(), next.Id, next.WorkerId, next.Walk));
+
+                    if (next.WorkerId.HasValue)
+                    {
+                        workersInUse.Add(next.WorkerId.Value);
+                    }
                 }
 
                 var finished = inProgress.Min;
                 inProgress.Remove(finished);
                 currentTime = finished.SimulatedEndTime;
                 var walk = finished.Walk;
+                if (finished.WorkerId.HasValue)
+                {
+                    workersInUse.Remove(finished.WorkerId.Value);
+                }
 
-                stepCallback?.Invoke(new SimulationStep() { StepType = StepType.Stop, Time = currentTime, Walk = finished.Walk, RemainingCriticalPath = nodeToDependentWalkNode[finished.Walk.Node].RemainingCriticalPath.Value });
+                stepCallback?.Invoke(new SimulationStep() { StepType = StepType.Stop, Time = currentTime, Walk = finished.Walk, RemainingCriticalPath = nodeToDependentWalkNode[finished.Walk.Node].RemainingCriticalPath.Value, Worker = finished.WorkerId });
 
                 dependencyAnalysis.MakeDiscoveries(walk);
                 dependencyAnalysis.SatisfyDependents(walk);

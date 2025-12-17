@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -16,25 +17,43 @@ namespace StructuredLogViewer.DependencyGraph
             var graphStartAnalysis = new StartAnalysis(graph);
             var graphCriticalPathAnalysis = new CriticalPathAnalysis(graph);
 
-            StringBuilder simulationSteps = new StringBuilder();
-            var graphSimulationAnalysis = new SimulationAnalysis(graph, graphCriticalPathAnalysis, graphStartAnalysis.NodeEvaluations.Count, c => simulationSteps.AppendLine($"{c.Time:G}: {c.StepType} {c.Walk.Node.ToPrettyString()} (Remaining: {c.RemainingCriticalPath:G}"));
-            File.WriteAllText($"{build.LogFilePath}.simulationsteps.txt", simulationSteps.ToString());
+            void Simulate(int count, Dictionary<RealProjectEvaluationNode, int> affinities, string fileName)
+            {
+                StringBuilder simulationSteps = new StringBuilder();
+                var graphSimulationAnalysis = new SimulationAnalysis(
+                    graph,
+                    graphCriticalPathAnalysis,
+                    count,
+                    affinities,
+                    c => simulationSteps.AppendLine($"{c.Time:G}: {c.StepType} {c.Walk.Node.ToPrettyString()} (Remaining: {c.RemainingCriticalPath:G}"));
+                File.WriteAllText($"{build.LogFilePath}.simulation.{fileName}.steps.txt", simulationSteps.ToString());
+
+                StringBuilder simulationPathString = new();
+                StringBuilder simulationPathAbbreviated = new();
+                DependencyAnalysis.PrintCriticalPath(graphSimulationAnalysis.SimulatedPath, "critical", "sim", simulationPathString, simulationPathAbbreviated, TimeSpan.FromMilliseconds(500));
+
+                StringBuilder simulationPathSummary = new();
+                simulationPathSummary.AppendLine("Path Summary:");
+                graphSimulationAnalysis.SimulatedPathStats.WriteSummaries(simulationPathSummary);
+
+                File.WriteAllText($"{build.LogFilePath}.simulation.{fileName}.txt", string.Join(Environment.NewLine,
+                    simulationPathSummary.ToString(),
+                    simulationPathAbbreviated.ToString()
+                ));
+            }
+
+            Simulate(graphStartAnalysis.NodeEvaluations.Count, affinities: null, "n");
+            Simulate(graphStartAnalysis.NodeEvaluations.Count, graphStartAnalysis.NodeEvaluations.SelectMany(worker => worker.Value.Select(t => new { WorkerId = worker.Key, Eval = t })).ToDictionary(t => t.Eval, t => t.WorkerId), "n.affinity");
+            Simulate(graphStartAnalysis.NodeEvaluations.Count * 2, affinities: null, "2n");
+            Simulate(graphStartAnalysis.NodeEvaluations.Count * 2, graphStartAnalysis.NodeEvaluations.SelectMany(worker => worker.Value.Select((t, i) => new { WorkerId = worker.Key + (graphStartAnalysis.NodeEvaluations.Count * (i % 2)), Eval = t })).ToDictionary(t => t.Eval, t => t.WorkerId), "2n.affinity");
 
             StringBuilder criticalPathString = new();
             StringBuilder criticalPathAbbreviated = new();
-            DependencyAnalysis.PrintCriticalPath(graphCriticalPathAnalysis.CriticalPath, "actual", "critical", criticalPathString, criticalPathAbbreviated, TimeSpan.FromMilliseconds(100));
+            DependencyAnalysis.PrintCriticalPath(graphCriticalPathAnalysis.CriticalPath, "actual", "critical", criticalPathString, criticalPathAbbreviated, TimeSpan.FromMilliseconds(500));
 
             StringBuilder criticalPathSummary = new();
             criticalPathSummary.AppendLine("Path Summary:");
             graphCriticalPathAnalysis.CriticalPathStats.WriteSummaries(criticalPathSummary);
-
-            StringBuilder simulationPathString = new();
-            StringBuilder simulationPathAbbreviated = new();
-            DependencyAnalysis.PrintCriticalPath(graphSimulationAnalysis.SimulatedPath, "critical", "sim", simulationPathString, simulationPathAbbreviated, TimeSpan.FromMilliseconds(100));
-
-            StringBuilder simulationPathSummary = new();
-            simulationPathSummary.AppendLine("Path Summary:");
-            graphSimulationAnalysis.SimulatedPathStats.WriteSummaries(simulationPathSummary);
 
             StringBuilder everythingSummary = new();
             everythingSummary.AppendLine("Everything Summary:");
@@ -47,12 +66,7 @@ namespace StructuredLogViewer.DependencyGraph
                 nodeSummary.ToString(),
                 everythingSummary.ToString(),
                 criticalPathSummary.ToString(),
-                criticalPathAbbreviated.ToString(),
-                simulationPathSummary.ToString(),
-                simulationPathAbbreviated.ToString(),
-                "---------------------------------",
-                criticalPathString.ToString(),
-                simulationPathString.ToString()
+                criticalPathAbbreviated.ToString()
             ));
 
             File.WriteAllText($"{build.LogFilePath}.criticalpathtimes.txt", string.Join(Environment.NewLine,
