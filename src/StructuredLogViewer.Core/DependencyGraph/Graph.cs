@@ -167,6 +167,7 @@ namespace StructuredLogViewer.DependencyGraph
                 }
                 else
                 {
+                    int currentTaskNodeIndex = 0;
                     TargetTaskNode currentTargetTaskNode = null;
                     var tasks = target.Children.OfType<Task>().ToArray();
 
@@ -244,7 +245,9 @@ namespace StructuredLogViewer.DependencyGraph
                             {
                                 if (currentTargetTaskNode == null)
                                 {
-                                    currentTargetTaskNode = UpdateCreatedTargetBaseNode(new TargetTaskNode());
+                                    currentTargetTaskNode = UpdateCreatedTargetBaseNode(new TargetTaskNode() {
+                                        Index = currentTaskNodeIndex++
+                                    });
                                 }
 
                                 currentTargetTaskNode.Tasks.Add(task);
@@ -265,7 +268,10 @@ namespace StructuredLogViewer.DependencyGraph
                     }
                     else
                     {
-                        UpdateCreatedTargetBaseNode(new TargetTaskNode());
+                        UpdateCreatedTargetBaseNode(new TargetTaskNode()
+                        {
+                            Index = currentTaskNodeIndex++
+                        });
                     }
                 }
 

@@ -121,6 +121,7 @@ namespace StructuredLogViewer.DependencyGraph
         public DateTime? OverrideEndTime;
         public List<Task> Tasks = new();
         public long? CopiedFiles;
+        public int Index = 0;
 
         private string TaskNames => Tasks.Count == 0 ? "(no tasks)" : string.Join(", ", Tasks.Select(t => t.Name));
 
