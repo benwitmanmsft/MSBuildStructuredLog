@@ -68,12 +68,12 @@ namespace StructuredLogViewer.DependencyGraph
 
         public void WriteSummaries(StringBuilder summaries)
         {
-            WriteSummary(summaries, "Tasks By Duration", GetTaskNameToDurations());
-            WriteSummary(summaries, "Targets By Duration", GetTargetDurations());
-            WriteSummary(summaries, "Targets By Task Duration", GetTargetTaskDurations());
-            WriteSummary(summaries, "Evaluations By Duration", GetEvaluationDurations());
-            WriteSummary(summaries, "Evaluation by Target Duration", GetEvaluationTargetDurations());
-            WriteSummary(summaries, "Nodes by Target Duration", GetNodeTargetDurations());
+            WriteSummary(summaries, "Target Duration by Target Name", GetTargetDurations());
+            WriteSummary(summaries, "Task Duration By Target Name", GetTargetTaskDurations());
+            WriteSummary(summaries, "Task Duration by Task Name", GetTaskNameToDurations());
+            WriteSummary(summaries, "Evaluation Durations", GetEvaluationDurations());
+            WriteSummary(summaries, "Target Duration By Evaluation", GetEvaluationTargetDurations());
+            WriteSummary(summaries, "Target Duration By Node", GetNodeTargetDurations());
         }
     }
 }
