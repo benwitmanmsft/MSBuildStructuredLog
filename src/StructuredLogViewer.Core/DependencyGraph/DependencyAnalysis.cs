@@ -147,44 +147,54 @@ namespace StructuredLogViewer.DependencyGraph
                     return;
                 }
 
-                var types = string.Join(", ", groupContents.Select(t => t.Node).GroupBy(t => t.GetType().Name).Select(t => (Name: t.Key, Count: t.Count())).OrderByDescending(t => t.Count).Select(t => $"{t.Name} ({t.Count})"));
-                var abbv = string.Join(", ",
-                    groupContents
-                    .Select(t => t.Node)
-                    .GroupBy(t => t.TheEvaluation)
-                    .Select(u =>
-                    {
-                        var executedStats = u
-                            .OfType<TargetTaskNode>()
-                            .GroupBy(t => t.Target)
-                            .Select(t => (Targets: 1, Tasks: t.Sum(u => u.Tasks.Count)))
-                            .Aggregate((Targets: 0, Tasks: 0), (a, b) => (a.Targets + b.Targets, a.Tasks + b.Tasks));
-
-                        var cachedCount = u.OfType<TargetFromCacheNode>().Count();
-                        var skippedCount = u.OfType<TargetSkippedNode>().Count();
-                        List<string> cachedAndSkipped = new();
-
-                        if (cachedCount > 0)
-                        {
-                            cachedAndSkipped.Add($"{cachedCount} Cached");
-                        }
-
-                        if (skippedCount > 0)
-                        {
-                            cachedAndSkipped.Add($"{skippedCount} Skipped");
-                        }
-
-                        return $"{Path.GetFileName(u.Key.ProjectFile)}: {executedStats.Targets} Targets | {executedStats.Tasks} Tasks {(cachedAndSkipped.Count > 0 ? $" +({string.Join(", ", cachedAndSkipped)})" : "")}";
-                    }));
-
-                var lastGroupMember = groupContents.Last();
-                var groupTaskDurationEnd = groupPreviousTaskDuration + groupContents.Aggregate(TimeSpan.Zero, (a, t) => a + t.Node.GetTaskDuration());
-
-                PrintElement(groupPreviousEdge.CriticalPathTime.Value, lastGroupMember.CriticalPathTime.Value, groupPreviousEdge.BaselineTime.Value, lastGroupMember.BaselineTime.Value, groupPreviousTaskDuration, groupTaskDurationEnd, $"Group: {types}", abbv, false, null);
-
-                foreach (var member in groupContents)
+                if (groupContents.Count == 1)
                 {
-                    PrintNode(member, true, member.CriticalPathIsDiscovery);
+                    var walk = groupContents.Single();
+
+                    PrintNode(walk, false, walk.CriticalPathIsDiscovery);
+                }
+                else
+                {
+                    var types = string.Join(", ", groupContents.Select(t => t.Node).GroupBy(t => t.GetType().Name).Select(t => (Name: t.Key, Count: t.Count())).OrderByDescending(t => t.Count).Select(t => $"{t.Name} ({t.Count})"));
+                    var abbv = string.Join(", ",
+                        groupContents
+                        .Select(t => t.Node)
+                        .GroupBy(t => t.TheEvaluation)
+                        .Select(u =>
+                        {
+                            var executedStats = u
+                                .OfType<TargetTaskNode>()
+                                .GroupBy(t => t.Target)
+                                .Select(t => (Targets: 1, Tasks: t.Sum(u => u.Tasks.Count)))
+                                .Aggregate((Targets: 0, Tasks: 0), (a, b) => (a.Targets + b.Targets, a.Tasks + b.Tasks));
+
+                            var cachedCount = u.OfType<TargetFromCacheNode>().Count();
+                            var skippedCount = u.OfType<TargetSkippedNode>().Count();
+                            List<string> cachedAndSkipped = new();
+
+                            if (cachedCount > 0)
+                            {
+                                cachedAndSkipped.Add($"{cachedCount} Cached");
+                            }
+
+                            if (skippedCount > 0)
+                            {
+                                cachedAndSkipped.Add($"{skippedCount} Skipped");
+                            }
+
+                            return $"{u.Key.PrettyName}: {executedStats.Targets} Targets | {executedStats.Tasks} Tasks {(cachedAndSkipped.Count > 0 ? $" +({string.Join(", ", cachedAndSkipped)})" : "")}";
+                        }));
+
+                    var lastGroupMember = groupContents.Last();
+                    var groupTaskDurationEnd = groupPreviousTaskDuration + groupContents.Aggregate(TimeSpan.Zero, (a, t) => a + t.Node.GetTaskDuration());
+
+                    PrintElement(groupPreviousEdge.CriticalPathTime.Value, lastGroupMember.CriticalPathTime.Value, groupPreviousEdge.BaselineTime.Value, lastGroupMember.BaselineTime.Value, groupPreviousTaskDuration, groupTaskDurationEnd, $"Group: {types}", abbv, false, null);
+
+                    foreach (var member in groupContents)
+                    {
+                        PrintNode(member, true, member.CriticalPathIsDiscovery);
+                    }
+
                 }
 
                 groupPreviousEdge = null;
@@ -198,22 +208,30 @@ namespace StructuredLogViewer.DependencyGraph
                 {
                     PrintNode(walk, false, false);
                 }
-                else if ((walk.CriticalPathTime.Value - lastWalk.CriticalPathTime.Value) < threshold && lastWalk.Node.TheEvaluation == walk.Node.TheEvaluation)
-                {
-                    if (groupContents == null)
-                    {
-                        groupPreviousEdge = lastWalk;
-                        groupPreviousTaskDuration = totalTaskDuration;
-                        groupContents = new();
-                    }
-
-                    groupContents.Add(walk);
-                }
                 else
                 {
-                    FlushGroup();
+                    if (lastWalk.Node.TheEvaluation != walk.Node.TheEvaluation)
+                    {
+                        FlushGroup();
+                    }
 
-                    PrintNode(walk, false, walk.CriticalPathIsDiscovery);
+                    if ((walk.CriticalPathTime.Value - lastWalk.CriticalPathTime.Value) < threshold)
+                    {
+                        if (groupContents == null)
+                        {
+                            groupPreviousEdge = lastWalk;
+                            groupPreviousTaskDuration = totalTaskDuration;
+                            groupContents = new();
+                        }
+
+                        groupContents.Add(walk);
+                    }
+                    else
+                    {
+                        FlushGroup();
+
+                        PrintNode(walk, false, walk.CriticalPathIsDiscovery);
+                    }
                 }
 
                 lastWalk = walk;
