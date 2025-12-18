@@ -207,48 +207,50 @@ namespace StructuredLogViewer.DependencyGraph
                 }
                 else
                 {
-                    var types = string.Join(", ", groupContents.Select(t => t.Node).GroupBy(t => t.GetType().Name).Select(t => (Name: t.Key, Count: t.Count())).OrderByDescending(t => t.Count).Select(t => $"{t.Name} ({t.Count})"));
-                    var abbv = string.Join(", ",
-                        groupContents
-                        .Select(t => t.Node)
-                        .GroupBy(t => t.TheEvaluation)
-                        .Select(u =>
-                        {
-                            var executedStats = u
+                    string GetAbbv()
+                    {
+                        var evaluation = groupContents.Select(t => t.Node.TheEvaluation).Distinct().Single();
+
+                        var nodes = groupContents.Select(t => t.Node);
+
+                        var executedStats = nodes
                                 .OfType<TargetTaskNode>()
                                 .GroupBy(t => t.Target)
                                 .Select(t => (Targets: 1, Tasks: t.Sum(u => u.Tasks.Count)))
                                 .Aggregate((Targets: 0, Tasks: 0), (a, b) => (a.Targets + b.Targets, a.Tasks + b.Tasks));
 
-                            if (executedStats.Targets == 0 && executedStats.Tasks == 0 && u.All(t => t is MSBuildStartNode || t is MSBuildEndNode))
-                            {
-                                return $"{u.Key.PrettyName}: {(u.First() as TargetBaseNode).Target.Name}";
-                            }
+                        if (executedStats.Targets == 0 && executedStats.Tasks == 0 && nodes.All(t => t is MSBuildStartNode || t is MSBuildEndNode))
+                        {
+                            return $"{evaluation.PrettyName}: {(nodes.First() as TargetBaseNode).Target.Name}";
+                        }
 
-                            string firstLast = "";
-                            if (u.OfType<TargetBaseNode>().Any())
-                            {
-                                var firstTargetName = u.OfType<TargetBaseNode>().FirstOrDefault().Target.Name;
-                                var lastTargetName = u.OfType<TargetBaseNode>().LastOrDefault().Target.Name;
-                                firstLast = $": {firstTargetName} => {lastTargetName}";
-                            }
+                        string firstLast = "";
+                        if (nodes.OfType<TargetBaseNode>().Any())
+                        {
+                            var firstTargetName = nodes.OfType<TargetBaseNode>().FirstOrDefault().Target.Name;
+                            var lastTargetName = nodes.OfType<TargetBaseNode>().LastOrDefault().Target.Name;
+                            firstLast = $": {firstTargetName} => {lastTargetName}";
+                        }
 
-                            var cachedCount = u.OfType<TargetFromCacheNode>().Count();
-                            var skippedCount = u.OfType<TargetSkippedNode>().Count();
-                            List<string> cachedAndSkipped = new();
+                        var cachedCount = nodes.OfType<TargetFromCacheNode>().Count();
+                        var skippedCount = nodes.OfType<TargetSkippedNode>().Count();
+                        List<string> cachedAndSkipped = new();
 
-                            if (cachedCount > 0)
-                            {
-                                cachedAndSkipped.Add($"{cachedCount} Cached");
-                            }
+                        if (cachedCount > 0)
+                        {
+                            cachedAndSkipped.Add($"{cachedCount} Cached");
+                        }
 
-                            if (skippedCount > 0)
-                            {
-                                cachedAndSkipped.Add($"{skippedCount} Skipped");
-                            }
+                        if (skippedCount > 0)
+                        {
+                            cachedAndSkipped.Add($"{skippedCount} Skipped");
+                        }
 
-                            return $"{u.Key.PrettyName}: {executedStats.Targets} Targets | {executedStats.Tasks} Tasks {(cachedAndSkipped.Count > 0 ? $" +({string.Join(", ", cachedAndSkipped)})" : "")}{firstLast}";
-                        }));
+                        return $"{evaluation.PrettyName}: {executedStats.Targets} Targets | {executedStats.Tasks} Tasks {(cachedAndSkipped.Count > 0 ? $" +({string.Join(", ", cachedAndSkipped)})" : "")}{firstLast}";
+                    }
+
+                    var types = string.Join(", ", groupContents.Select(t => t.Node).GroupBy(t => t.GetType().Name).Select(t => (Name: t.Key, Count: t.Count())).OrderByDescending(t => t.Count).Select(t => $"{t.Name} ({t.Count})"));
+                    var abbv = GetAbbv();
 
                     var lastGroupMember = groupContents.Last();
                     var groupTaskDurationEnd = groupPreviousTaskDuration + groupContents.Aggregate(TimeSpan.Zero, (a, t) => a + t.Node.GetTaskDuration());
