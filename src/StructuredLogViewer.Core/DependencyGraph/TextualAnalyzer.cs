@@ -33,7 +33,7 @@ namespace StructuredLogViewer.DependencyGraph
                 DependencyAnalysis.PrintCriticalPath(
                     graphSimulationAnalysis.SimulatedPath, "critical", "sim", simulationPathString, simulationPathAbbreviated,
                     baselineThreshold: TimeSpan.FromMilliseconds(500), bestThreshold: TimeSpan.FromMilliseconds(500),
-                    canGroupEvaluations: true, canGroupCopies: true);
+                    canGroup: true, canGroupEvaluations: true, canGroupCopies: true);
 
                 StringBuilder simulationPathSummary = new();
                 simulationPathSummary.AppendLine("Path Summary:");
@@ -55,7 +55,7 @@ namespace StructuredLogViewer.DependencyGraph
             DependencyAnalysis.PrintCriticalPath(
                 graphCriticalPathAnalysis.CriticalPath, "actual", "critical", criticalPathString, criticalPathAbbreviated,
                     baselineThreshold: TimeSpan.FromMilliseconds(500), bestThreshold: TimeSpan.FromMilliseconds(500),
-                    canGroupEvaluations: true, canGroupCopies: true);
+                    canGroup: true, canGroupEvaluations: true, canGroupCopies: true);
 
             StringBuilder criticalPathSummary = new();
             criticalPathSummary.AppendLine("Path Summary:");

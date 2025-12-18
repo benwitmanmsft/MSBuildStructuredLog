@@ -103,6 +103,7 @@ namespace StructuredLogViewer.DependencyGraph
             StringBuilder prettyString,
             TimeSpan? baselineThreshold,
             TimeSpan? bestThreshold,
+            bool canGroup,
             bool canGroupEvaluations,
             bool canGroupCopies)
         {
@@ -278,6 +279,7 @@ namespace StructuredLogViewer.DependencyGraph
                     }
 
                     bool cannotGroup =
+                        !canGroup ||
                         (!canGroupEvaluations && walk.Node is ProjectEvaluationNode) ||
                         (!canGroupCopies && walk.Node is TargetTaskNode taskNode && taskNode.CopiedFiles > 0) ||
                         (baselineThreshold.HasValue && (walk.BaselineTime.Value - lastWalk.BaselineTime.Value) > baselineThreshold.Value) ||
