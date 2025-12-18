@@ -101,7 +101,10 @@ namespace StructuredLogViewer.DependencyGraph
             string bestTitle,
             StringBuilder pedanticString,
             StringBuilder prettyString,
-            TimeSpan threshold)
+            TimeSpan? baselineThreshold,
+            TimeSpan? bestThreshold,
+            bool canGroupEvaluations,
+            bool canGroupCopies)
         {
             prettyString.AppendLine(@$"{baselineTitle,-10} +delta     ({bestTitle,-10} +delta    ) [loss time  +delta    ] [task time  +delta    ] Description");
 
@@ -265,7 +268,13 @@ namespace StructuredLogViewer.DependencyGraph
                         FlushGroup();
                     }
 
-                    if ((walk.CriticalPathTime.Value - lastWalk.CriticalPathTime.Value) < threshold && !walk.Node.NeverGroup())
+                    bool cannotGroup =
+                        (!canGroupEvaluations && walk.Node is ProjectEvaluationNode) ||
+                        (!canGroupCopies && walk.Node is TargetTaskNode taskNode && taskNode.CopiedFiles > 0) ||
+                        (baselineThreshold.HasValue && (walk.BaselineTime.Value - lastWalk.BaselineTime.Value) > baselineThreshold.Value) ||
+                        (bestThreshold.HasValue && (walk.CriticalPathTime.Value - lastWalk.CriticalPathTime.Value) > bestThreshold.Value);
+
+                    if (!cannotGroup)
                     {
                         if (groupContents == null)
                         {
