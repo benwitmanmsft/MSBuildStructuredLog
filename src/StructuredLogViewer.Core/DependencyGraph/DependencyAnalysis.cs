@@ -95,9 +95,15 @@ namespace StructuredLogViewer.DependencyGraph
             return $"{prefix}{ts.ToString(AbbreviatedTimeSpanFormat)}";
         }
 
-        public static void PrintCriticalPath(GraphWalk endWalk, string baselineTitle, string bestTitle, StringBuilder criticalPathString, StringBuilder criticalPathAbbreviated, TimeSpan threshold)
+        public static void PrintCriticalPath(
+            GraphWalk endWalk,
+            string baselineTitle,
+            string bestTitle,
+            StringBuilder pedanticString,
+            StringBuilder prettyString,
+            TimeSpan threshold)
         {
-            criticalPathAbbreviated.AppendLine(@$"{baselineTitle,-10} +delta     ({bestTitle,-10} +delta    ) [loss time  +delta    ] [task time  +delta    ] Description");
+            prettyString.AppendLine(@$"{baselineTitle,-10} +delta     ({bestTitle,-10} +delta    ) [loss time  +delta    ] [task time  +delta    ] Description");
 
             var list = endWalk.Enumerate().ToList();
             HashSet<MSBuildStartNode> endSeen = new();
@@ -153,8 +159,8 @@ namespace StructuredLogViewer.DependencyGraph
                 var stringDiscovery = isDiscovery.HasValue ? (isDiscovery.Value ? "[F]" : "[D]") : "[ ]";
                 var stringDepth = string.Concat(Enumerable.Repeat(' ', depth * 2));
 
-                criticalPathString.AppendLine($"{stringIndent}={stringDiscovery}=> {pathEnd:G} +{pathDelta:G} {realEnd:G} +{realDelta:G} d:{comparisonDelta:G} {taskEnd:G} +{taskDelta:G} {label}");
-                criticalPathAbbreviated.AppendLine($"{stringIndent}{TimeSpanString(realEnd)} {TimeSpanString(realDelta)} ({TimeSpanString(pathEnd)} {TimeSpanString(pathDelta)}) [{TimeSpanString(comparison)} {TimeSpanString(comparisonDelta)}] [{TimeSpanString(taskEnd)} {TimeSpanString(taskDelta)}] {stringDepth}{labelAbbv}");
+                pedanticString.AppendLine($"{stringIndent}={stringDiscovery}=> {pathEnd:G} +{pathDelta:G} {realEnd:G} +{realDelta:G} d:{comparisonDelta:G} {taskEnd:G} +{taskDelta:G} {label}");
+                prettyString.AppendLine($"{stringIndent}{TimeSpanString(realEnd)} {TimeSpanString(realDelta)} ({TimeSpanString(pathEnd)} {TimeSpanString(pathDelta)}) [{TimeSpanString(comparison)} {TimeSpanString(comparisonDelta)}] [{TimeSpanString(taskEnd)} {TimeSpanString(taskDelta)}] {stringDepth}{labelAbbv}");
             }
 
             TimeSpan totalTaskDuration = TimeSpan.Zero;
