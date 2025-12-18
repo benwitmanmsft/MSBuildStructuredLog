@@ -121,11 +121,23 @@ namespace StructuredLogViewer.DependencyGraph
             int depth = 0;
             Dictionary<MSBuildStartNode, int> startDepths = new();
             Dictionary<GraphWalk, int> depths = new();
-            foreach (var walk in list)
+            for(int i = 0; i < list.Count; ++i)
             {
-                if (walk.Node is MSBuildStartNode start && endSeen.Contains(start))
+                var walk = list[i];
+
+                if (walk.Node is MSBuildStartNode start)
                 {
-                    depth = startDepths[start];
+                    if (endSeen.Contains(start))
+                    {
+                        depth = startDepths[start];
+                    }
+                    else
+                    {
+                        for (int j = i - 1; j >= 0 && depths[list[j]] >= depth; --j)
+                        {
+                            ++depths[list[j]];
+                        }
+                    }
                 }
 
                 depths[walk] = depth;
