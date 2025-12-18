@@ -219,11 +219,6 @@ namespace StructuredLogViewer.DependencyGraph
                                 .Select(t => (Targets: 1, Tasks: t.Sum(u => u.Tasks.Count)))
                                 .Aggregate((Targets: 0, Tasks: 0), (a, b) => (a.Targets + b.Targets, a.Tasks + b.Tasks));
 
-                        if (executedStats.Targets == 0 && executedStats.Tasks == 0 && nodes.All(t => t is MSBuildStartNode || t is MSBuildEndNode))
-                        {
-                            return $"{evaluation.PrettyName}: {(nodes.First() as TargetBaseNode).Target.Name}";
-                        }
-
                         string firstLast = "";
                         if (nodes.OfType<TargetBaseNode>().Any())
                         {
