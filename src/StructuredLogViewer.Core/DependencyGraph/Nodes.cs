@@ -31,7 +31,9 @@ namespace StructuredLogViewer.DependencyGraph
             writer.WriteLine($"Dependencies: {string.Join(", ", GetDependencies().Select(t => t.IdString()))}");
             writer.WriteLine($"DiscoveredBy: {string.Join(", ", DiscoveredBy.Select(t => t.IdString()))}");
             if (this is MSBuildStartNode start)
+            {
                 writer.WriteLine($"Discovers: {string.Join(", ", start.Discovered.Select(t => t.IdString()))}");
+            }
         }
     }
 
