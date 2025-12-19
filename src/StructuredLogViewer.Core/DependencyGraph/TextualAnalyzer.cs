@@ -57,6 +57,36 @@ namespace StructuredLogViewer.DependencyGraph
                     baselineThreshold: TimeSpan.FromMilliseconds(500), bestThreshold: TimeSpan.FromMilliseconds(500),
                     canGroup: true, canGroupEvaluations: true, canGroupCopies: true);
 
+            var criticalPath = graphCriticalPathAnalysis.CriticalPath.Enumerate().ToList();
+            criticalPath.Reverse();
+
+            var nodeUsage = new NodeActivity(graph, criticalPath.First().Node.GetEnd());
+
+            StringBuilder criticalPathRelevantNodeUtilizations = new();
+
+            criticalPathRelevantNodeUtilizations.AppendLine("Critical Path Gap Analysis");
+            GraphWalk last = null;
+            foreach (var walk in criticalPath)
+            {
+                if (last != null && !last.Node.IsSentinel && !walk.Node.IsSentinel)
+                {
+                    var realDelta = walk.BaselineTime.Value - last.BaselineTime.Value;
+                    var critDelta = walk.CriticalPathTime.Value - last.CriticalPathTime.Value;
+                    if (realDelta - critDelta > walk.Node.GetDuration() + TimeSpan.FromMilliseconds(500))
+                    {
+                        var start = last.BaselineTime.Value;
+                        var end = walk.BaselineTime.Value;
+                        criticalPathRelevantNodeUtilizations.AppendLine($"Analyzing {start:G} => {end:G} on node {walk.Node.TheEvaluation.NodeId} because {walk.Node.TheEvaluation.ToPrettyString()}");
+                        foreach (var n in nodeUsage.Timelines[walk.Node.TheEvaluation.NodeId].Where(t => t.Start < end && t.End > start && t.First.TheEvaluation != walk.Node.TheEvaluation))
+                        {
+                            criticalPathRelevantNodeUtilizations.AppendLine($"  {n.Start:G} => {n.End:G}: {n.First.TheEvaluation.PrettyName}: {n.First.ToPrettyString()} => {n.Last.ToPrettyString()}");
+                        }
+                    }
+                }
+
+                last = walk;
+            }
+
             StringBuilder criticalPathSummary = new();
             criticalPathSummary.AppendLine("Path Summary:");
             graphCriticalPathAnalysis.CriticalPathStats.WriteSummaries(criticalPathSummary);
@@ -72,7 +102,8 @@ namespace StructuredLogViewer.DependencyGraph
                 nodeSummary.ToString(),
                 everythingSummary.ToString(),
                 criticalPathSummary.ToString(),
-                criticalPathAbbreviated.ToString()
+                criticalPathAbbreviated.ToString(),
+                criticalPathRelevantNodeUtilizations.ToString()
             ));
 
             File.WriteAllText($"{build.LogFilePath}.criticalpathtimes.txt", string.Join(Environment.NewLine,
