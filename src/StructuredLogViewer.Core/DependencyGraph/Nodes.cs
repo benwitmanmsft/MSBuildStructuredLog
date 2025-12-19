@@ -25,6 +25,8 @@ namespace StructuredLogViewer.DependencyGraph
 
         public abstract string ToPrettyString();
 
+        public virtual bool IsSentinel => false;
+
         public void Write(TextWriter writer)
         {
             writer.WriteLine($"{IdString()}: {ToPrettyString()}");
@@ -230,7 +232,9 @@ namespace StructuredLogViewer.DependencyGraph
         public HashSet<BaseNode> Discovered = new();
         public TimeSpan EmptyDuration;
 
-        public override string IdString() => Target == null ? $"SentinelStart" : $"Target:{Target.Index}:MSBuildStart:{Index}";
+        public override bool IsSentinel => Target ==null;
+
+        public override string IdString() => IsSentinel ? $"SentinelStart" : $"Target:{Target.Index}:MSBuildStart:{Index}";
 
         public override string ToString()
         {
@@ -239,7 +243,7 @@ namespace StructuredLogViewer.DependencyGraph
                 : $"MSBuild Call Start Build:{Project.Id:D4} Eval:{EvaluationNode.NameString} {Project.ProjectFile}:{Target.Name}: #{Index} {Task.SourceFilePath}:{Task.LineNumber}";
         }
 
-        public override string ToPrettyString() => Target == null ? "Start" : $"{EvaluationNode.PrettyName}: {Target.Name}: MSBuild Start #{Index}";
+        public override string ToPrettyString() => IsSentinel ? "Start" : $"{EvaluationNode.PrettyName}: {Target.Name}: MSBuild Start #{Index}";
 
         protected override IEnumerable<BaseNode> GetSpecificDependencies() => [];
 
@@ -257,7 +261,9 @@ namespace StructuredLogViewer.DependencyGraph
         public int Index;
         public List<BaseNode> ProjectLastTargetNodes;
 
-        public override string IdString() => Target == null ? $"SentinelEnd" : $"Target:{Target.Index}:MSBuildEnd:{Index}";
+        public override bool IsSentinel => Target == null;
+
+        public override string IdString() => IsSentinel ? $"SentinelEnd" : $"Target:{Target.Index}:MSBuildEnd:{Index}";
 
         public override string ToString()
         {
@@ -266,7 +272,7 @@ namespace StructuredLogViewer.DependencyGraph
                 : $"MSBuild Call End   Build:{Project.Id:D4} Eval:{EvaluationNode.NameString} {Project.ProjectFile}:{Target.Name}: #{Index} {Task.SourceFilePath}:{Task.LineNumber}";
         }
 
-        public override string ToPrettyString() => Target == null ? "End" : $"{EvaluationNode.PrettyName}: {Target.Name}: MSBuild End #{Index}";
+        public override string ToPrettyString() => IsSentinel ? "End" : $"{EvaluationNode.PrettyName}: {Target.Name}: MSBuild End #{Index}";
 
         protected override IEnumerable<BaseNode> GetSpecificDependencies() => [.. ProjectLastTargetNodes];
 
