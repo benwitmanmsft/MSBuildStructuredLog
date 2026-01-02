@@ -46,6 +46,38 @@ namespace Microsoft.Build.Logging.StructuredLogger
             }
         }
 
+        public static string GetParentString(BaseNode leafNode)
+        {
+            var sb = new StringBuilder();
+
+            WriteParent(leafNode, sb);
+
+            return sb.ToString();
+        }
+
+        private static int WriteParent(BaseNode node, StringBuilder sb)
+        {
+            if (node == null)
+            {
+                return 0;
+            }
+
+            if (sb.Length > MaxStringLength)
+            {
+                return 0;
+            }
+
+            var indent = WriteParent(node.Parent, sb);
+
+            Indent(sb, indent);
+
+            var text = node.GetFullText();
+
+            sb.AppendLine(text);
+
+            return indent + 1;
+        }
+
         private static void Indent(StringBuilder sb, int indent)
         {
             sb.Append(' ', indent * 4);

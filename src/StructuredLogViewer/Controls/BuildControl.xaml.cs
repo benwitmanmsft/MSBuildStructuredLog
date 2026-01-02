@@ -41,6 +41,7 @@ namespace StructuredLogViewer.Controls
         private MenuItem copyItem;
         private MenuItem copySubtreeItem;
         private MenuItem copyVisibleSubtreeItem;
+        private MenuItem copyParentTreeItem;
         private MenuItem viewSubtreeTextItem;
         private MenuItem searchInSubtreeItem;
         private MenuItem searchInNodeByNameItem;
@@ -57,6 +58,7 @@ namespace StructuredLogViewer.Controls
         private MenuItem filterChildrenItem;
         private MenuItem copyNameItem;
         private MenuItem copyValueItem;
+        private MenuItem copyTimingItem;
         private MenuItem viewSourceItem;
         private MenuItem viewFullTextItem;
         private MenuItem openFileItem;
@@ -215,6 +217,7 @@ namespace StructuredLogViewer.Controls
             copyItem = new MenuItem() { Header = "Copy" };
             copySubtreeItem = new MenuItem() { Header = "Copy subtree" };
             copyVisibleSubtreeItem = new MenuItem() { Header = "Copy visible subtree" };
+            copyParentTreeItem = new MenuItem() { Header = "Copy parent tree" };
             viewSubtreeTextItem = new MenuItem() { Header = "View subtree text" };
             searchInSubtreeItem = new MenuItem() { Header = "Search in subtree" };
             excludeSubtreeFromSearchItem = new MenuItem() { Header = "Exclude subtree from search" };
@@ -231,6 +234,7 @@ namespace StructuredLogViewer.Controls
             filterChildrenItem = new MenuItem() { Header = "Filter children (Ctrl+F)" };
             copyNameItem = new MenuItem() { Header = "Copy name" };
             copyValueItem = new MenuItem() { Header = "Copy value" };
+            copyTimingItem = new MenuItem() { Header = "Copy timing" };
             viewSourceItem = new MenuItem() { Header = "View source" };
             viewFullTextItem = new MenuItem { Header = "View full text" };
             showTimeItem = new MenuItem() { Header = "Show time and duration" };
@@ -260,6 +264,7 @@ namespace StructuredLogViewer.Controls
             copyItem.Click += (s, a) => Copy();
             copySubtreeItem.Click += (s, a) => CopySubtree(ActiveTreeView);
             copyVisibleSubtreeItem.Click += (s, a) => CopySubtree(ActiveTreeView, visibleOnly: true);
+            copyParentTreeItem.Click += (s, a) => CopyParentTree(ActiveTreeView);
             viewSubtreeTextItem.Click += (s, a) => ViewSubtreeText();
             searchInSubtreeItem.Click += (s, a) => SearchInSubtree();
             excludeSubtreeFromSearchItem.Click += (s, a) => ExcludeSubtreeFromSearch();
@@ -276,6 +281,7 @@ namespace StructuredLogViewer.Controls
             filterChildrenItem.Click += (s, a) => FilterChildren();
             copyNameItem.Click += (s, a) => CopyName();
             copyValueItem.Click += (s, a) => CopyValue();
+            copyTimingItem.Click += (s, a) => CopyTiming();
             viewSourceItem.Click += (s, a) => Invoke(treeView.SelectedItem as BaseNode);
             viewFullTextItem.Click += (s, a) => ViewFullText(treeView.SelectedItem as BaseNode);
             showTimeItem.Click += (s, a) => ShowTimeAndDuration();
@@ -328,10 +334,12 @@ namespace StructuredLogViewer.Controls
             contextMenu.AddItem(copyItem);
             contextMenu.AddItem(copySubtreeItem);
             contextMenu.AddItem(copyVisibleSubtreeItem);
+            contextMenu.AddItem(copyParentTreeItem);
             contextMenu.AddItem(copyFilePathItem);
             contextMenu.AddItem(copyChildrenItem);
             contextMenu.AddItem(copyNameItem);
             contextMenu.AddItem(copyValueItem);
+            contextMenu.AddItem(copyTimingItem);
 
             contextMenu.AddItem(new Separator());
             contextMenu.AddItem(showFileInExplorerItem);
@@ -1048,6 +1056,7 @@ Recent (");
             var nameValueVisibility = node is NameValueNode ? Visibility.Visible : Visibility.Collapsed;
             copyNameItem.Visibility = nameValueVisibility;
             copyValueItem.Visibility = nameValueVisibility;
+            copyTimingItem.Visibility = node is TimedNode ? Visibility.Visible : Visibility.Collapsed;
             viewSourceItem.Visibility = CanView(node) ? Visibility.Visible : Visibility.Collapsed;
             viewFullTextItem.Visibility = HasFullText(node) ? Visibility.Visible : Visibility.Collapsed;
             openFileItem.Visibility = CanOpenFile(node) ? Visibility.Visible : Visibility.Collapsed;
@@ -2044,6 +2053,21 @@ Recent (");
             }
         }
 
+        public void CopyParentTree(TreeView tree = null)
+        {
+            tree ??= ActiveTreeView;
+            if (tree == null)
+            {
+                return;
+            }
+
+            if (tree.SelectedItem is BaseNode treeNode)
+            {
+                var text = Microsoft.Build.Logging.StructuredLogger.StringWriter.GetParentString(treeNode);
+                CopyToClipboard(text);
+            }
+        }
+
         public void ViewSubtreeText()
         {
             if (treeView.SelectedItem is BaseNode treeNode)
@@ -2429,6 +2453,15 @@ Recent (");
             if (nameValueNode != null)
             {
                 CopyToClipboard(nameValueNode.Value);
+            }
+        }
+
+        public void CopyTiming()
+        {
+            var timedNode = treeView.SelectedItem as TimedNode;
+            if (timedNode != null)
+            {
+                CopyToClipboard($"{TextUtilities.Display(timedNode.StartTime)} <=> {TextUtilities.Display(timedNode.EndTime)} ({timedNode.DurationText})");
             }
         }
 

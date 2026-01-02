@@ -27,6 +27,8 @@ namespace Microsoft.Build.Logging.StructuredLogger
         public string SourceFilePath => ProjectFile;
         string IPreprocessable.RootFilePath => ProjectFile;
 
+        public override string FullText => string.IsNullOrEmpty(EvaluationText) ? Name : Name + " " + EvaluationText;
+
         private readonly Dictionary<int, Target> targetsById = new Dictionary<int, Target>();
         private readonly Dictionary<int, Task> tasksById = new Dictionary<int, Task>();
 

@@ -36,10 +36,12 @@ namespace StructuredLogViewer.Avalonia.Controls
         private MenuItem copyItem;
         private MenuItem copySubtreeItem;
         private MenuItem copyVisibleSubtreeItem;
+        private MenuItem copyParentTreeItem;
         private MenuItem sortChildrenByNameItem;
         private MenuItem sortChildrenByDurationItem;
         private MenuItem copyNameItem;
         private MenuItem copyValueItem;
+        private MenuItem copyTimingItem;
         private MenuItem viewSourceItem;
         private MenuItem showFileInExplorerItem;
         private MenuItem preprocessItem;
@@ -145,12 +147,15 @@ namespace StructuredLogViewer.Avalonia.Controls
             var sharedCopyAllItem = new MenuItem() { Header = "Copy All" };
             var sharedCopySubtreeItem = new MenuItem() { Header = "Copy subtree" };
             var sharedCopyVisibleSubtreeItem = new MenuItem() { Header = "Copy visible subtree" };
+            var sharedCopyParentTreeItem = new MenuItem() { Header = "Copy with parent tree" };
             sharedCopyAllItem.Click += (s, a) => CopyAll();
             sharedCopySubtreeItem.Click += (s, a) => CopySubtree();
             sharedCopyVisibleSubtreeItem.Click += (s, a) => CopySubtree(visibleOnly: true);
+            sharedCopyParentTreeItem.Click += (s, a) => CopyParentTree();
             sharedTreeContextMenu.AddItem(sharedCopyAllItem);
             sharedTreeContextMenu.AddItem(sharedCopySubtreeItem);
             sharedTreeContextMenu.AddItem(sharedCopyVisibleSubtreeItem);
+            sharedTreeContextMenu.AddItem(sharedCopyParentTreeItem);
 
             // Files
             filesTreeContextMenu = new ContextMenu();
@@ -174,10 +179,12 @@ namespace StructuredLogViewer.Avalonia.Controls
             copyItem = new MenuItem() { Header = "Copy" };
             copySubtreeItem = new MenuItem() { Header = "Copy subtree" };
             copyVisibleSubtreeItem = new MenuItem() { Header = "Copy visible subtree" };
+            copyParentTreeItem = new MenuItem() { Header = "Copy with parent tree" };
             sortChildrenByNameItem = new MenuItem() { Header = "Sort children by name" };
             sortChildrenByDurationItem = new MenuItem() { Header = "Sort children by duration" };
             copyNameItem = new MenuItem() { Header = "Copy name" };
             copyValueItem = new MenuItem() { Header = "Copy value" };
+            copyTimingItem = new MenuItem() { Header = "Copy start" };
             viewSourceItem = new MenuItem() { Header = "View source" };
             showFileInExplorerItem = new MenuItem() { Header = "Show in Explorer" };
             preprocessItem = new MenuItem() { Header = "Preprocess" };
@@ -185,10 +192,12 @@ namespace StructuredLogViewer.Avalonia.Controls
             copyItem.Click += (s, a) => Copy();
             copySubtreeItem.Click += (s, a) => CopySubtree(treeView);
             copyVisibleSubtreeItem.Click += (s, a) => CopySubtree(treeView, visibleOnly: true);
+            copyParentTreeItem.Click += (s, a) => CopyParentTree(treeView);
             sortChildrenByNameItem.Click += (s, a) => SortChildrenByName();
             sortChildrenByDurationItem.Click += (s, a) => SortChildrenByDuration();
             copyNameItem.Click += (s, a) => CopyName();
             copyValueItem.Click += (s, a) => CopyValue();
+            copyTimingItem.Click += (s, a) => CopyTiming();
             viewSourceItem.Click += (s, a) => Invoke(treeView.SelectedItem as BaseNode);
             showFileInExplorerItem.Click += (s, a) => ShowFileInExplorer();
             preprocessItem.Click += (s, a) => Preprocess(treeView.SelectedItem as IPreprocessable);
@@ -198,10 +207,12 @@ namespace StructuredLogViewer.Avalonia.Controls
             contextMenu.AddItem(copyItem);
             contextMenu.AddItem(copySubtreeItem);
             contextMenu.AddItem(copyVisibleSubtreeItem);
+            contextMenu.AddItem(copyParentTreeItem);
             contextMenu.AddItem(sortChildrenByNameItem);
             contextMenu.AddItem(sortChildrenByDurationItem);
             contextMenu.AddItem(copyNameItem);
             contextMenu.AddItem(copyValueItem);
+            contextMenu.AddItem(copyTimingItem);
             contextMenu.AddItem(new Separator());
             contextMenu.AddItem(showFileInExplorerItem);
             contextMenu.AddItem(hideItem);
@@ -492,6 +503,7 @@ Recent:
             copyNameItem.IsVisible = visibility;
             copyValueItem.IsVisible = visibility;
             viewSourceItem.IsVisible = CanView(node);
+            copyTimingItem.IsVisible = node is TimedNode;
             showFileInExplorerItem.IsVisible = CanShowInExplorer();
             var hasChildren = node is TreeNode t && t.HasChildren;
             copySubtreeItem.IsVisible = hasChildren;
@@ -1028,6 +1040,21 @@ Recent:
             }
         }
 
+        public void CopyParentTree(TreeView tree = null)
+        {
+            tree = tree ?? ActiveTreeView;
+            if (tree == null)
+            {
+                return;
+            }
+
+            if (tree.SelectedItem is BaseNode treeNode)
+            {
+                var text = Microsoft.Build.Logging.StructuredLogger.StringWriter.GetParentString(treeNode);
+                CopyToClipboard(text);
+            }
+        }
+
         public void SortChildrenByName()
         {
             var selectedItem = treeView.SelectedItem;
@@ -1121,6 +1148,15 @@ Recent:
             if (nameValueNode != null)
             {
                 CopyToClipboard(nameValueNode.Value);
+            }
+        }
+
+        public void CopyTiming()
+        {
+            var timedNode = treeView.SelectedItem as TimedNode;
+            if (timedNode != null)
+            {
+                CopyToClipboard($"{TextUtilities.Display(timedNode.StartTime)} <=> {TextUtilities.Display(timedNode.EndTime)} ({timedNode.DurationText})");
             }
         }
 

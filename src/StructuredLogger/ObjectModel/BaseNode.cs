@@ -29,9 +29,11 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
         public virtual string Title => ToString();
 
+        public virtual string FullText => null;
+
         public virtual string GetFullText()
         {
-            string result = Title ?? ToString() ?? TypeName ?? GetType().Name;
+            string result = FullText ?? Title ?? ToString() ?? TypeName ?? GetType().Name;
 
             // when we ingest strings we normalize on \n to save space.
             // when the strings leave our app via clipboard, bring \r\n back so that notepad works
