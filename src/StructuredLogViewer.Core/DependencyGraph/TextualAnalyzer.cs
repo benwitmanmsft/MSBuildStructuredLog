@@ -74,12 +74,21 @@ namespace StructuredLogViewer.DependencyGraph
                     var critDelta = walk.CriticalPathTime.Value - last.CriticalPathTime.Value;
                     if (realDelta - critDelta > walk.Node.GetDuration() + TimeSpan.FromMilliseconds(500))
                     {
-                        var start = last.BaselineTime.Value;
-                        var end = walk.BaselineTime.Value;
-                        criticalPathRelevantNodeUtilizations.AppendLine($"Analyzing {start:G} => {end:G} on node {walk.Node.TheEvaluation.NodeId} because {walk.Node.TheEvaluation.ToPrettyString()}");
-                        foreach (var n in nodeUsage.Timelines[walk.Node.TheEvaluation.NodeId].Where(t => t.Start < end && t.End > start && t.First.TheEvaluation != walk.Node.TheEvaluation))
+                        if (walk.Node is MSBuildEndNode endNode)
                         {
-                            criticalPathRelevantNodeUtilizations.AppendLine($"  {n.Start:G} => {n.End:G}: {n.First.TheEvaluation.PrettyName}: {n.First.ToPrettyString()} => {n.Last.ToPrettyString()}");
+                            foreach (var dependency in endNode.ProjectLastTargetNodes)
+                            {
+                                if (dependency is TargetFromCacheNode)
+                                {
+                                    var start = last.BaselineTime.Value;
+                                    var end = walk.BaselineTime.Value;
+                                    criticalPathRelevantNodeUtilizations.AppendLine($"Analyzing FromCache delay {start:G} => {end:G} on node {dependency.TheEvaluation.NodeId} because {dependency.ToPrettyString()} needed to run there");
+                                    foreach (var n in nodeUsage.Timelines[dependency.TheEvaluation.NodeId].Where(t => t.Start < end && t.End > start && t.First.TheEvaluation != dependency.TheEvaluation))
+                                    {
+                                        criticalPathRelevantNodeUtilizations.AppendLine($"  {n.Start:G} => {n.End:G}: {n.First.TheEvaluation.PrettyName}: {n.First.ToPrettyString()} => {n.Last.ToPrettyString()}");
+                                    }
+                                }
+                            }
                         }
                     }
                 }
