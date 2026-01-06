@@ -45,8 +45,8 @@ namespace StructuredLogViewer.DependencyGraph
                 ));
             }
 
-            Simulate(graphStartAnalysis.NodeEvaluations.Count, affinities: null, "n");
-            Simulate(graphStartAnalysis.NodeEvaluations.Count, graphStartAnalysis.NodeEvaluations.SelectMany(worker => worker.Value.Select(t => new { WorkerId = worker.Key, Eval = t })).ToDictionary(t => t.Eval, t => t.WorkerId), "n.affinity");
+            Simulate(graphStartAnalysis.NodeEvaluations.Count * 1, affinities: null, "n");
+            Simulate(graphStartAnalysis.NodeEvaluations.Count * 1, graphStartAnalysis.NodeEvaluations.SelectMany(worker => worker.Value.Select(t => new { WorkerId = worker.Key, Eval = t })).ToDictionary(t => t.Eval, t => t.WorkerId), "n.affinity");
             Simulate(graphStartAnalysis.NodeEvaluations.Count * 2, affinities: null, "2n");
             Simulate(graphStartAnalysis.NodeEvaluations.Count * 2, graphStartAnalysis.NodeEvaluations.SelectMany(worker => worker.Value.Select((t, i) => new { WorkerId = worker.Key + (graphStartAnalysis.NodeEvaluations.Count * (i % 2)), Eval = t })).ToDictionary(t => t.Eval, t => t.WorkerId), "2n.affinity");
 
