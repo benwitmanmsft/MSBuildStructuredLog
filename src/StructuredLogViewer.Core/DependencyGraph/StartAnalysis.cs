@@ -48,17 +48,24 @@ namespace StructuredLogViewer.DependencyGraph
 
         public void PrintStartAnalysis(StringBuilder output)
         {
-            output.AppendLine($"Time to first non-graph evaluation: {TimeToFirstEvaluation:G}");
+            output.AppendLine($"Seconds to first non-graph evaluation: {TimeToFirstEvaluation.TotalSeconds:F3}");
+            output.AppendLine();
+
+            output.AppendLine($"### Time to First Evaluation Per Node");
+            output.AppendLine($"| Node | Start | Evaluation Id | First Evaluation");
+            output.AppendLine($"| -: | :- | -: | :- |");
             foreach (var node in NodeFirstEvaluation.OrderBy(t => t.Value.StartTime))
             {
-                output.AppendLine($"  Node {node.Key}: {node.Value.StartTime:G} {node.Value.Node.ToPrettyString()} ({node.Value.Id})");
+                output.AppendLine($"| {node.Key} | {node.Value.StartTime.TotalSeconds:F3} | {node.Value.Id} | {node.Value.Node.ToPrettyString()} |");
             }
             output.AppendLine();
 
-            output.AppendLine($"Total Evaluations Per Node:");
+            output.AppendLine($"### Total Evaluations Per Node");
+            output.AppendLine($"| Node | Count |");
+            output.AppendLine($"| -: | -: |");
             foreach (var node in NodeEvaluations.OrderBy(t => t.Key))
             {
-                output.AppendLine($"  Node {node.Key}: {node.Value.Count()}");
+                output.AppendLine($"| {node.Key} | {node.Value.Count()} |");
             }
 
             output.AppendLine();

@@ -49,18 +49,31 @@ namespace StructuredLogViewer.DependencyGraph
 
         private void WriteSummary(StringBuilder summaries, string type, Dictionary<string, List<TimeSpan>> keyValuePairs)
         {
+            int top = 10;
+
             var values = keyValuePairs
                 .Select(kvp => (Name: kvp.Key, List: kvp.Value.OrderByDescending(t => t).ToList(), Total: kvp.Value.Aggregate(TimeSpan.Zero, (a, b) => a + b)))
                 .OrderByDescending(t => t.Total)
                 .ToList();
 
-            summaries.AppendLine($"{type}: {keyValuePairs.Keys.Count} with {values.Sum(t => t.List.Count)} instances totalling {values.Aggregate(TimeSpan.Zero, (a, b) => a + b.Total)}");
+            summaries.AppendLine($"### {type}");
 
-            summaries.AppendLine("Top 10:");
-            foreach (var item in values.Take(10))
+            summaries.AppendLine($"| Name | Duration | Instances | Worst | Median | Best |");
+            summaries.AppendLine($"| :- | -: | -: | -: | -: | -: |");
+            foreach (var item in values.Take(top))
             {
-                summaries.AppendLine($"  {item.Name}: {item.Total:G} over {item.List.Count} occurrences Worst:{item.List.First():G}, Median:{item.List[item.List.Count / 2]:g}, Best:{item.List.Last():G} ");
+                summaries.AppendLine($"| `{item.Name.Replace("|", "\\|")}` | {item.Total.TotalSeconds:F3} | {item.List.Count} | {item.List.First().TotalSeconds:F3} | {item.List[item.List.Count / 2].TotalSeconds:F3} | {item.List.Last().TotalSeconds:F3} |");
             }
+
+            var remaining = values.Skip(top);
+            if (remaining.Any())
+            {
+                var remainingTogether = remaining.Aggregate((Total: TimeSpan.Zero, Occurrences: 0), (r, item) => (r.Total + item.Total, r.Occurrences + item.List.Count));
+                summaries.AppendLine($"| (and {remaining.Count()} others) | {remainingTogether.Total.TotalSeconds:F3} | {remainingTogether.Occurrences} | | | |");
+            }
+
+            summaries.AppendLine($"| All ({keyValuePairs.Keys.Count}) | {values.Aggregate(TimeSpan.Zero, (a, b) => a + b.Total).TotalSeconds:F3} | {values.Sum(t => t.List.Count)} | | | |");
+
             summaries.AppendLine();
         }
 
@@ -69,11 +82,11 @@ namespace StructuredLogViewer.DependencyGraph
         public void WriteSummaries(StringBuilder summaries)
         {
             WriteSummary(summaries, "Target Duration by Target Name", GetTargetDurations());
-            WriteSummary(summaries, "Task Duration By Target Name", GetTargetTaskDurations());
-            WriteSummary(summaries, "Task Duration by Task Name", GetTaskNameToDurations());
-            WriteSummary(summaries, "Evaluation Durations", GetEvaluationDurations());
             WriteSummary(summaries, "Target Duration By Evaluation", GetEvaluationTargetDurations());
             WriteSummary(summaries, "Target Duration By Node", GetNodeTargetDurations());
+            WriteSummary(summaries, "Task Duration by Task Name", GetTaskNameToDurations());
+            WriteSummary(summaries, "Task Duration By Target Name", GetTargetTaskDurations());
+            WriteSummary(summaries, "Evaluation Durations", GetEvaluationDurations());
         }
     }
 }

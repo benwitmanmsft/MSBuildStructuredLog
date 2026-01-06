@@ -100,14 +100,15 @@ namespace StructuredLogViewer.DependencyGraph
             string baselineTitle,
             string bestTitle,
             StringBuilder pedanticString,
-            StringBuilder prettyString,
+            StringBuilder markdownString,
             TimeSpan? baselineThreshold,
             TimeSpan? bestThreshold,
             bool canGroup,
             bool canGroupEvaluations,
             bool canGroupCopies)
         {
-            prettyString.AppendLine(@$"{baselineTitle,-10} +delta     ({bestTitle,-10} +delta    ) [loss time  +delta    ] [task time  +delta    ] Description");
+            markdownString.AppendLine($@"| {baselineTitle} | delta | {bestTitle} | delta | loss time | delta | task time | delta | Description |");
+            markdownString.AppendLine($@"| -: | -: | -: | -: | -: | -: | -: | -: | :- |");
 
             var list = endWalk.Enumerate().ToList();
             HashSet<MSBuildStartNode> endSeen = new();
@@ -173,10 +174,14 @@ namespace StructuredLogViewer.DependencyGraph
 
                 var stringIndent = indent ? new string(' ', 1) : string.Empty;
                 var stringDiscovery = isDiscovery.HasValue ? (isDiscovery.Value ? "[F]" : "[D]") : "[ ]";
-                var stringDepth = string.Concat(Enumerable.Repeat(' ', depth * 2));
+                var stringDepth = string.Concat(Enumerable.Repeat(' ', depth * 2));
 
                 pedanticString.AppendLine($"{stringIndent}={stringDiscovery}=> {pathEnd:G} +{pathDelta:G} {realEnd:G} +{realDelta:G} d:{comparisonDelta:G} {taskEnd:G} +{taskDelta:G} {label}");
-                prettyString.AppendLine($"{stringIndent}{TimeSpanString(realEnd)} {TimeSpanString(realDelta)} ({TimeSpanString(pathEnd)} {TimeSpanString(pathDelta)}) [{TimeSpanString(comparison)} {TimeSpanString(comparisonDelta)}] [{TimeSpanString(taskEnd)} {TimeSpanString(taskDelta)}] {stringDepth}{labelAbbv}");
+
+                if (!indent)
+                {
+                    markdownString.AppendLine($"| {realEnd.TotalSeconds:F3} | {realDelta.TotalSeconds:F3} | {pathEnd.TotalSeconds:F3} | {pathDelta.TotalSeconds:F3} | {comparison.TotalSeconds:F3} | {comparisonDelta.TotalSeconds:F3} | {taskEnd.TotalSeconds:F3} | {taskDelta.TotalSeconds:F3} | `{stringDepth}{labelAbbv.Replace("|", "\\|")}`");
+                }
             }
 
             TimeSpan totalTaskDuration = TimeSpan.Zero;
