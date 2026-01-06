@@ -34,13 +34,16 @@ namespace StructuredLogViewer.DependencyGraph
 
             NodeEvaluations = graph.Nodes
                 .OfType<RealProjectEvaluationNode>()
-                .Where(t => t.Evaluation.StartTime >= firstEvaluationTime)
                 .GroupBy(t => t.Evaluation.NodeId)
                 .ToDictionary(t => t.Key, t => t.ToList());
 
             NodeFirstEvaluation =
                 NodeEvaluations
-                .ToDictionary(t => t.Key, t => t.Value.Min(u => (StartTime: u.Evaluation.StartTime - firstEvaluationTime, u.Evaluation.Id, Node: u)));
+                .ToDictionary(
+                    t => t.Key,
+                    t => t.Value
+                        .Where(u => u.Evaluation.StartTime >= firstEvaluationTime)
+                        .Min(u => (StartTime: u.Evaluation.StartTime - firstEvaluationTime, u.Evaluation.Id, Node: u)));
         }
 
         public void PrintStartAnalysis(StringBuilder output)
