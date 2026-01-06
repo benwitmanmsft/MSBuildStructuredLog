@@ -242,7 +242,7 @@ namespace StructuredLogViewer.DependencyGraph
                             cachedAndSkipped.Add($"{skippedCount} Skipped");
                         }
 
-                        return $"{evaluation.PrettyName}: {executedStats.Targets} Targets | {executedStats.Tasks} Tasks {(cachedAndSkipped.Count > 0 ? $" +({string.Join(", ", cachedAndSkipped)})" : "")}{firstLast}";
+                        return $"{evaluation.PrettyName}: {executedStats.Targets} Targets | {executedStats.Tasks} Tasks{(cachedAndSkipped.Count > 0 ? $" +({string.Join(", ", cachedAndSkipped)})" : "")}{firstLast}";
                     }
 
                     var types = string.Join(", ", groupContents.Select(t => t.Node).GroupBy(t => t.GetType().Name).Select(t => (Name: t.Key, Count: t.Count())).OrderByDescending(t => t.Count).Select(t => $"{t.Name} ({t.Count})"));
