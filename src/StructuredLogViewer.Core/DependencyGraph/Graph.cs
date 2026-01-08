@@ -64,8 +64,8 @@ namespace StructuredLogViewer.DependencyGraph
             }
             else
             {
-                var evaluation = project.GetEvaluation(Build);
-                if (evaluation == null)
+                ProjectEvaluation evaluation = null;
+                if (project.Children.OfType<Target>().All(t => t.Skipped && t.TargetSkipReason == TargetSkipReason.PreviouslyBuiltSuccessfully) || (evaluation = project.GetEvaluation(Build)) == null)
                 {
                     foreach (var target in project.Children.OfType<Target>())
                     {
