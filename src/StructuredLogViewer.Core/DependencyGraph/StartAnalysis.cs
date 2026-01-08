@@ -9,64 +9,90 @@ namespace StructuredLogViewer.DependencyGraph
     public class StartAnalysis
     {
         public Graph Graph;
-        public TimeSpan TimeToFirstEvaluation;
+        public TimeSpan TimeToFirstUsedEvaluation;
         public Dictionary<int, List<RealProjectEvaluationNode>> NodeEvaluations;
-        public Dictionary<int, (TimeSpan StartTime, int Id, RealProjectEvaluationNode Node)> NodeFirstEvaluation;
+        public HashSet<RealProjectEvaluationNode> UsedEvaluations;
+        public Dictionary<int, (TimeSpan StartOffset, int Id, RealProjectEvaluationNode Node)> NodeFirstEvaluation;
+        public Dictionary<int, (TimeSpan StartOffset, int Id, RealProjectEvaluationNode Node)> NodeFirstUsedEvaluation;
 
         public StartAnalysis(Graph graph)
         {
             Graph = graph;
 
-            // All evaluations before the first build are assumed to be automatically discovered - i.e. they are /graph
-            var (firstBuildTime, firstProject) = graph.Build.Children.OfType<Project>().Min(p => (p.StartTime, p));
-            var firstEvaluationTime = firstProject.GetEvaluation(graph.Build).StartTime;
-            foreach (var earlyEvaluations in graph.EvaluationNodes.Values.Where(t => t.Evaluation.EndTime < firstBuildTime))
-            {
-                foreach (var discoveredBy in earlyEvaluations.DiscoveredBy)
-                {
-                    discoveredBy.Discovered.Remove(earlyEvaluations);
-                }
-
-                earlyEvaluations.DiscoveredBy.Clear();
-            }
-
-            TimeToFirstEvaluation = firstEvaluationTime - graph.StartNode.CustomStartTime.Value;
-
-            NodeEvaluations = graph.Nodes
-                .OfType<RealProjectEvaluationNode>()
+            NodeEvaluations = graph.EvaluationNodes.Values
                 .GroupBy(t => t.Evaluation.NodeId)
                 .ToDictionary(t => t.Key, t => t.ToList());
+
+            UsedEvaluations = new(
+                graph.Nodes
+                    .Where(t => t is TargetBaseNode)
+                    .Select(t => t.TheEvaluation)
+                    .OfType<RealProjectEvaluationNode>()
+            );
 
             NodeFirstEvaluation =
                 NodeEvaluations
                 .ToDictionary(
                     t => t.Key,
                     t => t.Value
-                        .Where(u => u.Evaluation.StartTime >= firstEvaluationTime)
-                        .Min(u => (StartTime: u.Evaluation.StartTime - firstEvaluationTime, u.Evaluation.Id, Node: u)));
+                        .Min(u => (StartOffset: u.Evaluation.StartTime - graph.StartNode.CustomStartTime.Value, u.Evaluation.Id, Node: u)));
+
+            NodeFirstUsedEvaluation =
+                NodeEvaluations
+                .ToDictionary(
+                    t => t.Key,
+                    t => t.Value
+                        .Where(u => UsedEvaluations.Contains(u.TheEvaluation))
+                        .Select(u => (StartOffset: u.Evaluation.StartTime - graph.StartNode.CustomStartTime.Value, u.Evaluation.Id, Node: u))
+                        .DefaultIfEmpty()
+                        .Min());
+
+            TimeToFirstUsedEvaluation = NodeFirstUsedEvaluation.Values.Min(t => t.StartOffset);
         }
 
         public void PrintStartAnalysis(StringBuilder output)
         {
-            output.AppendLine($"Seconds to first non-graph evaluation: {TimeToFirstEvaluation.TotalSeconds:F3}");
-            output.AppendLine();
+            var bestStartInfo = Graph.Nodes
+                .Where(t => t is not ProjectEvaluationNode)
+                .Where(t => t.TheEvaluation != null)
+                .Select(Node => (Start: Node.GetEnd() - Graph.StartNode.CustomStartTime.Value - Node.GetDuration(), Node))
+                .Select((t, Index) => (Time: t.Start - t.Node.TheEvaluation.GetDuration(), Index, t.Start, t.Node))
+                .Min();
 
-            output.AppendLine($"### Time to First Evaluation Per Node");
-            output.AppendLine($"| Node | Start | Evaluation Id | First Evaluation");
-            output.AppendLine($"| -: | :- | -: | :- |");
-            foreach (var node in NodeFirstEvaluation.OrderBy(t => t.Value.StartTime))
+            var bestStart = bestStartInfo.Time;
+
+            output.AppendLine($"Relative will be relative to the first build ({bestStartInfo.Node.ToPrettyString()}) which started at {bestStartInfo.Start.TotalSeconds:F3} but back based on its evaluation to {bestStart.TotalSeconds:F3}");
+
+            output.AppendLine($"### Evaluations Per Node");
+            output.AppendLine($"| Node | Count | First | Relative | Evaluation Id | First Evaluation");
+            output.AppendLine($"| -: | -: | -: | -: | -: | :- |");
+            foreach (var node in NodeEvaluations.OrderBy(t => NodeFirstEvaluation[t.Key].StartOffset))
             {
-                output.AppendLine($"| {node.Key} | {node.Value.StartTime.TotalSeconds:F3} | {node.Value.Id} | {node.Value.Node.ToPrettyString()} |");
+                var first = NodeFirstEvaluation[node.Key].StartOffset.TotalSeconds;
+                var relative = Math.Max(0, first - bestStart.TotalSeconds);
+
+                output.AppendLine($"| {node.Key} | {node.Value.Count} | {first:F3} | {relative:F3} | {NodeFirstEvaluation[node.Key].Id} | {NodeFirstEvaluation[node.Key].Node.PrettyName} |");
             }
             output.AppendLine();
 
-            output.AppendLine($"### Total Evaluations Per Node");
-            output.AppendLine($"| Node | Count |");
-            output.AppendLine($"| -: | -: |");
-            foreach (var node in NodeEvaluations.OrderBy(t => t.Key))
+            output.AppendLine($"### Used Evaluations Per Node");
+            output.AppendLine($"| Node | Count | First | Relative | Evaluation Id | First Evaluation");
+            output.AppendLine($"| -: | -: | -: | -: | -: | :- |");
+            foreach (var node in NodeEvaluations.OrderBy(t => NodeFirstUsedEvaluation[t.Key].StartOffset))
             {
-                output.AppendLine($"| {node.Key} | {node.Value.Count()} |");
+                var used = node.Value.Where(t => UsedEvaluations.Contains(t.TheEvaluation)).ToList();
+
+                if (used.Count == 0)
+                {
+                    continue;
+                }
+
+                var first = NodeFirstUsedEvaluation[node.Key].StartOffset.TotalSeconds;
+                var relative = Math.Max(0, first - bestStart.TotalSeconds);
+
+                output.AppendLine($"| {node.Key} | {used.Count} | {first:F3} | {relative:F3} | {NodeFirstUsedEvaluation[node.Key].Id} | {NodeFirstUsedEvaluation[node.Key].Node.PrettyName} |");
             }
+            output.AppendLine();
 
             output.AppendLine();
         }
