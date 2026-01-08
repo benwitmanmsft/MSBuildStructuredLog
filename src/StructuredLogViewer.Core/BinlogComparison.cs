@@ -191,8 +191,8 @@ namespace StructuredLogViewer
             var normalized1 = new NormalizedBinlog(binlogPath1, ignoreEvaluationsWith, ignoreGlobalProperties);
             var normalized2 = new NormalizedBinlog(binlogPath2, ignoreEvaluationsWith, ignoreGlobalProperties);
 
-            static string FormatEvalInfo(Evaluation e) => $"(Id:{e.ProjectEvaluation.Id}, Index:{e.ProjectEvaluation.Index})";
-            static string FormatTargetInfo(Target t) => $"(ProjectIndex:{((Project)t.Parent).Index}, Index:{t.Index})";
+            static string FormatEvalInfo(Evaluation e) => $"(EvaluationId:{e.ProjectEvaluation.Id}, EvaluationIndex:{e.ProjectEvaluation.Index})";
+            static string FormatTargetInfo(Target t) => $"(ProjectIndex:{((Project)t.Parent).Index}, TargetIndex:{t.Index})";
 
             CompareDictionaries(normalized1.EvaluationsByConfigurationHash, normalized2.EvaluationsByConfigurationHash,
                 static (hash, evaluation) => evaluation.ToSpecificString(),
