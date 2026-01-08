@@ -194,14 +194,14 @@ namespace StructuredLogViewer
             static string FormatEvalInfo(Evaluation e) => $"(Id:{e.ProjectEvaluation.Id}, Index:{e.ProjectEvaluation.Index})";
             static string FormatTargetInfo(Target t) => $"(ProjectIndex:{((Project)t.Parent).Index}, Index:{t.Index})";
 
-            BinlogComparison.CompareDictionaries(normalized1.EvaluationsByConfigurationHash, normalized2.EvaluationsByConfigurationHash,
+            CompareDictionaries(normalized1.EvaluationsByConfigurationHash, normalized2.EvaluationsByConfigurationHash,
                 static (hash, evaluation) => evaluation.ToSpecificString(),
                 static (hash, evaluation1, evaluation2) =>
                 {
 
                     Console.WriteLine($"{evaluation1.ToSpecificString()} [L:{FormatEvalInfo(evaluation1)}, R:{FormatEvalInfo(evaluation2)}]");
 
-                    BinlogComparison.CompareDictionaries(evaluation1.TargetsByName, evaluation2.TargetsByName,
+                    CompareDictionaries(evaluation1.TargetsByName, evaluation2.TargetsByName,
                         static (name, target) => target.Min(t => t.StartTime),
                         static (name, target1, target2) =>
                         {
@@ -210,7 +210,7 @@ namespace StructuredLogViewer
                             var executions1 = target1.Select((t, i) => new { Key = i, Value = t }).ToDictionary(t => t.Key, t => t.Value);
                             var executions2 = target2.Select((t, i) => new { Key = i, Value = t }).ToDictionary(t => t.Key, t => t.Value);
 
-                            BinlogComparison.CompareDictionaries(
+                            CompareDictionaries(
                                 executions1,
                                 executions2,
                                 static (index, execution) => index,
@@ -222,7 +222,7 @@ namespace StructuredLogViewer
                                     var tasks1 = execution1.Children.OfType<Task>().GroupBy(t => t.Name).SelectMany(t => t.Select((u, i) => new { Key = (Name: t.Key, Index: i), Value = u })).ToDictionary(t => t.Key, t => t.Value);
                                     var tasks2 = execution2.Children.OfType<Task>().GroupBy(t => t.Name).SelectMany(t => t.Select((u, i) => new { Key = (Name: t.Key, Index: i), Value = u })).ToDictionary(t => t.Key, t => t.Value);
 
-                                    BinlogComparison.CompareDictionaries(
+                                    CompareDictionaries(
                                         tasks1,
                                         tasks2,
                                         static (key, task) => task.StartTime,
@@ -233,7 +233,7 @@ namespace StructuredLogViewer
                                             var task1Parameters = task1.GetParameters().ToDictionary(p => (p as Property)?.Name ?? (p as Parameter)?.Name, p => p, StringComparer.OrdinalIgnoreCase);
                                             var task2Parameters = task2.GetParameters().ToDictionary(p => (p as Property)?.Name ?? (p as Parameter)?.Name, p => p, StringComparer.OrdinalIgnoreCase);
 
-                                            BinlogComparison.CompareDictionaries(
+                                            CompareDictionaries(
                                                 task1Parameters,
                                                 task2Parameters,
                                                 static (paramName, parameter) => paramName,
