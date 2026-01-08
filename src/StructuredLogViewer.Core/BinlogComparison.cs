@@ -247,8 +247,30 @@ namespace StructuredLogViewer
                                                         string ValuesToString(IEnumerable<string> values) => string.Join(", ", values.Select(v => v.Replace("\n", "\\n")));
 
                                                         Console.WriteLine($"        [DIFF]: Parameter '{paramName}' different:");
-                                                        Console.WriteLine($"          {ValuesToString(values1)}");
-                                                        Console.WriteLine($"          {ValuesToString(values2)}");
+                                                        Console.WriteLine($"          [L]: Value: {ValuesToString(values1)}");
+                                                        Console.WriteLine($"          [R]: Value: {ValuesToString(values2)}");
+
+                                                        if (values1.Count > 1 || values2.Count > 1)
+                                                        {
+                                                            var onlyIn1 = values1.Except(values2, StringComparer.OrdinalIgnoreCase).ToList();
+                                                            var onlyIn2 = values2.Except(values1, StringComparer.OrdinalIgnoreCase).ToList();
+                                                            var common = values1.Intersect(values2, StringComparer.OrdinalIgnoreCase).ToList();
+
+                                                            if (onlyIn1.Any())
+                                                            {
+                                                                Console.WriteLine($"          [L]: L: {ValuesToString(onlyIn1)}");
+                                                            }
+
+                                                            if (common.Any())
+                                                            {
+                                                                Console.WriteLine($"          [R]: I: {ValuesToString(common)}");
+                                                            }
+
+                                                            if (onlyIn2.Any())
+                                                            {
+                                                                Console.WriteLine($"          [R]: R: {ValuesToString(onlyIn2)}");
+                                                            }
+                                                        }
                                                     }
                                                 },
                                                 static (paramName, parameter, isRight) =>
